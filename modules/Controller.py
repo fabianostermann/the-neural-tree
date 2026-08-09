@@ -1,4 +1,4 @@
-USES = [ "NeuralNet" ]
+USES = [ "NeuralTree" ]
 REQUIRES = [ "Commands" ]
 PROVIDES = [ "NeuralTree" ]
 
