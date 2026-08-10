@@ -1,0 +1,7 @@
+# bbmuse configuration file.
+# TOML Syntax
+
+[application]
+name = "Code for the AIMC music paper"
+description = "none"
+
