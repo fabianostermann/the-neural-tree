@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bymjov4cqdg8t"]
+
+[ext_resource type="Script" uid="uid://lsvd5crr0wdo" path="res://tcp_tester.gd" id="1_ig7tw"]
+
+[node name="TcpTester" type="Node" unique_id=1865397962]
+script = ExtResource("1_ig7tw")
