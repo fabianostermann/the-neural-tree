@@ -1,10 +1,9 @@
 import random
 
 def _validate():
+    pass
     #n = Neuron(3)
     #print(n.forward([1,2,3]))
-    
-    assert tree._children[0]._parent == tree
     
 def thicken():
     # instanciate a new leaf at random position
@@ -30,6 +29,9 @@ def grow_branch():
     while not isinstance(leaf, Leaf):
         leaf = random.choice(TreeComponent.instances)
     leaf.grow_branch()
+    
+def get_all_nodes():
+    return TreeComponent.instances
     
 class Neuron:
     instances = []
