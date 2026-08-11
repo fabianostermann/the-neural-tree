@@ -1,6 +1,16 @@
 [gd_scene format=3 uid="uid://bymjov4cqdg8t"]
 
-[ext_resource type="Script" uid="uid://lsvd5crr0wdo" path="res://tcp_tester.gd" id="1_ig7tw"]
+[ext_resource type="Script" uid="uid://df4ldlsbk4ekd" path="res://layout.gd" id="1_h2yge"]
+[ext_resource type="Script" uid="uid://caekr1ngug1ft" path="res://simulation.gd" id="2_1bvp3"]
+[ext_resource type="Script" uid="uid://dy7thn0f0cp67" path="res://renderer.gd" id="3_lquwl"]
 
-[node name="TcpTester" type="Node" unique_id=1865397962]
-script = ExtResource("1_ig7tw")
+[node name="Main" type="Node" unique_id=1865397962]
+
+[node name="Layout" type="Node" parent="." unique_id=94263888]
+script = ExtResource("1_h2yge")
+
+[node name="Simulation" type="Node" parent="." unique_id=628192106]
+script = ExtResource("2_1bvp3")
+
+[node name="Renderer" type="Node2D" parent="." unique_id=1608901938]
+script = ExtResource("3_lquwl")
