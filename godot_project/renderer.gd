@@ -1,14 +1,23 @@
 # renderer.gd — hängt am Node "Renderer" (Typ: Node2D)
 #
 # Liest ausschließlich Simulation.sim und zeichnet daraus.
-# Jeder Ast ist eine quadratische Bezier von der Elternposition zur
-# Knotenposition, als sich verjüngendes Polygon gefüllt. Der Kontrollpunkt
-# liegt oberhalb der Sehne, wodurch sich Äste nach oben biegen — je
-# waagerechter der Ast, desto stärker.
 #
-# Die Wachstumsanimation entsteht komplett in der Simulation (die Astlänge
-# selbst wächst), hier wird nur zusätzlich die Spitze dünner gehalten,
-# solange der Ast noch jung ist.
+# Beide Formen teilen sich dieselbe Mittellinie: eine quadratische Bezier
+# vom Astfuß zur Knotenposition, deren Kontrollpunkt oberhalb der Sehne
+# liegt. Je waagerechter, desto stärker die Krümmung nach oben.
+#
+#   Äste  — Breitenprofil verjüngt sich linear von Fuß zu Spitze.
+#   Blätter (Knoten ohne Kinder) — Breitenprofil ist eine Blattform:
+#     kurzer Stiel, dann breite Fläche mit Maximum bei ~36 % und
+#     auslaufender Spitze. Die Größe hängt an rest_len und ist damit
+#     überall gleich, unabhängig von der Tiefe im Baum.
+#
+# ASTFUSS: die Simulation rechnet den Ansatzpunkt auf der SEHNE des
+# Elternastes aus, gezeichnet wird der Elternast aber als Bezier. Deshalb
+# bestimmt der Renderer den Fußpunkt hier noch einmal selbst — diesmal auf
+# der tatsächlichen Kurve, damit jeder Ast exakt auf dem Elternast sitzt
+# statt daneben. Die Differenz beträgt wenige Pixel und wirkt sich nur auf
+# den Zeichenpunkt aus, nicht auf die Physik.
 
 extends Node2D
 
@@ -17,17 +26,28 @@ const BOTTOM_MARGIN := 60.0        # Abstand des Stammfußes vom unteren Rand
 const FIT_MARGIN := 60.0           # Rand beim automatischen Einpassen
 const FIT_SMOOTH := 3.0            # Trägheit der Zoom-Anpassung
 
-const BEND := 0.20                 # Krümmung Richtung Sonne
-const SEGMENTS := 10               # Stützpunkte pro Ast
+const BEND := -0.5                 # Krümmung Richtung Sonne
+const SEGMENTS := 15               # Stützpunkte pro Ast
+const LEAF_SEGMENTS := 30          # Blätter brauchen eine feinere Kontur
 
-const WIDTH_K := 2.0               # Astdicke = K * subtree^EXP
-const WIDTH_EXP := 0.42
-const WIDTH_MIN := 1.6
-const WIDTH_MAX := 26.0
+const WIDTH_K := 1.0               # Astdicke (px) = K * thickness^EXP
+const WIDTH_EXP := 1.0            # 1.0 = proportional zur Python-Thickness
+const WIDTH_MIN := 2.0
+const WIDTH_MAX := 10000.0
 const BASE_BLEND := 0.35           # wie stark der Astfuß zum Elternast passt
 
+const LEAF_WIDTH := 0.44           # Blattbreite relativ zur Blattlänge
+const LEAF_STALK := 0.18           # Anteil der Länge, der Stiel bleibt
+const LEAF_STALK_W := 1.4          # Stieldicke
+const LEAF_PROFILE_A := 0.45       # Blattform: t^A * (1-t)^B ...
+const LEAF_PROFILE_B := 0.80
+const LEAF_PROFILE_NORM := 2.26318 # ... normiert auf Maximum 1
+const LEAF_HUE_JITTER := 0.05      # Farbstreuung pro Blatt
+const MIDRIB := true               # Blattader zeichnen
+
 const COLOR_TRUNK := Color(0.32, 0.24, 0.20)
-const COLOR_TIP := Color(0.55, 0.78, 0.45)
+const COLOR_BRANCH_TIP := Color(0.46, 0.38, 0.28)
+const COLOR_LEAF := Color(0.48, 0.76, 0.38)
 # ---------------------------------------------------------------------------
 
 var _fit := 1.0
@@ -98,62 +118,147 @@ func _draw() -> void:
 	for id in sim:
 		max_d = maxf(max_d, float(sim[id].depth))
 
-	# order läuft von der Wurzel nach außen: dicke Äste zuerst,
-	# dünne Zweige zeichnen sich sauber darüber
+	# Astfüße auf der gezeichneten Kurve — in einem Durchgang, weil
+	# order Eltern vor Kindern liefert und der Fuß eines Astes auf der
+	# Kurve des Elternastes liegt, die ihrerseits an dessen Fuß beginnt.
+	var base: Dictionary = {}
 	for id in _sim.order:
 		if not sim.has(id):
 			continue
 		var n: Dictionary = sim[id]
-		if n.parent == "" or not sim.has(n.parent):
+		if n.parent == "" or not base.has(n.parent):
+			base[id] = n.pos          # Bodenpunkt: Fuß ist er selbst
 			continue
-		if n.grow <= 0.001:
-			continue
-
 		var p: Dictionary = sim[n.parent]
-		var a: Vector2 = p.pos
-		var b: Vector2 = n.pos
-		if a.distance_squared_to(b) < 0.25:
+		base[id] = _curve_point(base[n.parent], p.pos, n.att)
+
+	# Erst das Holz (order läuft von innen nach außen: dicke Äste zuerst),
+	# danach die Blätter, damit sie darüber liegen
+	for id in _sim.order:
+		var n := _edge(sim, base, id)
+		if n.is_empty() or n.leaf:
 			continue
+		_draw_branch(sim, base[id], n, max_d)
 
-		var w_self := _width(n.subtree)
-		var w_base: float = lerpf(_width(p.subtree), w_self, BASE_BLEND)
-		var w_tip: float = w_self * lerpf(0.30, 1.0, n.grow)
-
-		var f: float = float(n.depth) / max_d
-		var col := COLOR_TRUNK.lerp(COLOR_TIP, f)
-
-		draw_colored_polygon(_branch(a, b, w_base, w_tip), col)
+	for id in _sim.order:
+		var n := _edge(sim, base, id)
+		if n.is_empty() or not n.leaf:
+			continue
+		_draw_leaf(id, base[id], n)
 
 
-func _width(subtree_size: int) -> float:
-	return clampf(WIDTH_K * pow(float(maxi(subtree_size, 1)), WIDTH_EXP),
+# Liefert den Knoten, wenn er eine zeichenbare Kante hat, sonst ein
+# leeres Dictionary.
+func _edge(sim: Dictionary, base: Dictionary, id: String) -> Dictionary:
+	if not sim.has(id) or not base.has(id):
+		return {}
+	var n: Dictionary = sim[id]
+	if n.parent == "" or not sim.has(n.parent):
+		return {}
+	if n.grow <= 0.001:
+		return {}
+	if base[id].distance_squared_to(n.pos) < 0.25:
+		return {}
+	return n
+
+
+func _draw_branch(sim: Dictionary, a: Vector2, n: Dictionary,
+		max_d: float) -> void:
+	var p: Dictionary = sim[n.parent]
+	var w_self := _width(n.thick)
+	var w_base: float = lerpf(_width(p.thick), w_self, BASE_BLEND)
+	var w_tip: float = w_self * lerpf(0.30, 1.0, n.grow)
+
+	var f: float = float(n.depth) / max_d
+	var col := COLOR_TRUNK.lerp(COLOR_BRANCH_TIP, f)
+
+	draw_colored_polygon(_shape(a, n.pos, SEGMENTS,
+			func(t: float) -> float: return lerpf(w_base, w_tip, t)), col)
+
+
+func _draw_leaf(id: String, a: Vector2, n: Dictionary) -> void:
+	var b: Vector2 = n.pos
+	# Größe aus der Ruhelänge, nicht aus dem aktuellen Abstand: damit
+	# bleiben Blätter überall gleich groß und zappeln nicht in der Breite.
+	var blade: float = float(n.rest_len) * LEAF_WIDTH * n.grow
+
+	var profile := func(t: float) -> float:
+		# Stiel, der zur Blattfläche hin ausläuft ...
+		var stalk: float = LEAF_STALK_W * maxf(0.0, 1.0 - t / LEAF_STALK)
+		# ... und die Blattfläche selbst
+		var u: float = clampf((t - LEAF_STALK) / (1.0 - LEAF_STALK), 0.0, 1.0)
+		var w: float = blade * LEAF_PROFILE_NORM \
+				* pow(u, LEAF_PROFILE_A) * pow(1.0 - u, LEAF_PROFILE_B)
+		return maxf(maxf(stalk, w), 0.6)
+
+	# Deterministische Farbstreuung: dasselbe Blatt bleibt sich treu
+	var j := (float(absi(hash(id)) % 1000) / 1000.0 - 0.5) * 2.0
+	var col := COLOR_LEAF
+	col.h = fposmod(col.h + j * LEAF_HUE_JITTER, 1.0)
+	col.v = clampf(col.v + j * 0.10, 0.0, 1.0)
+
+	draw_colored_polygon(_shape(a, b, LEAF_SEGMENTS, profile), col)
+
+	if MIDRIB:
+		draw_polyline(_centerline(a, b, LEAF_SEGMENTS),
+				col.darkened(0.35), maxf(blade * 0.06, 0.7), true)
+
+
+# Bildet die Python-Thickness [2, inf] auf eine Pixelbreite ab.
+func _width(thick: float) -> float:
+	return clampf(WIDTH_K * pow(maxf(thick, 2.0), WIDTH_EXP),
 			WIDTH_MIN, WIDTH_MAX)
 
 
-# Quadratische Bezier von a nach b, als sich verjüngendes Polygon.
-# Der Kontrollpunkt liegt oberhalb der Mitte; waagerechte Äste bekommen
-# die stärkste Krümmung, senkrechte bleiben gerade.
-func _branch(a: Vector2, b: Vector2, w_a: float, w_b: float) -> PackedVector2Array:
+# Kontrollpunkt der gemeinsamen Mittellinie: oberhalb der Sehne, mit
+# der stärksten Krümmung bei waagerechten und ohne bei senkrechten Ästen.
+func _control(a: Vector2, b: Vector2) -> Vector2:
 	var d := b - a
 	var l := d.length()
-	var dir := d / l
-	var bend := l * BEND * (1.0 - absf(dir.y))
-	var ctrl := (a + b) * 0.5 + Vector2(0.0, -bend)
+	if l < 0.001:
+		return (a + b) * 0.5
+	var bend := l * BEND * (1.0 - absf(d.y / l))
+	return (a + b) * 0.5 + Vector2(0.0, -bend)
+
+
+func _curve_point(a: Vector2, b: Vector2, t: float) -> Vector2:
+	if t >= 1.0:
+		return b
+	var ctrl := _control(a, b)
+	var inv := 1.0 - t
+	return a * (inv * inv) + ctrl * (2.0 * inv * t) + b * (t * t)
+
+
+func _centerline(a: Vector2, b: Vector2, segments: int) -> PackedVector2Array:
+	var ctrl := _control(a, b)
+	var pts := PackedVector2Array()
+	for i in segments + 1:
+		var t := float(i) / float(segments)
+		var inv := 1.0 - t
+		pts.append(a * (inv * inv) + ctrl * (2.0 * inv * t) + b * (t * t))
+	return pts
+
+
+# Baut ein Polygon um die Mittellinie; width_at(t) liefert die Breite.
+func _shape(a: Vector2, b: Vector2, segments: int,
+		width_at: Callable) -> PackedVector2Array:
+	var ctrl := _control(a, b)
+	var fallback := b - a
 
 	var left := PackedVector2Array()
 	var right := PackedVector2Array()
 
-	for i in SEGMENTS + 1:
-		var t := float(i) / float(SEGMENTS)
+	for i in segments + 1:
+		var t := float(i) / float(segments)
 		var inv := 1.0 - t
 
 		var pt := a * (inv * inv) + ctrl * (2.0 * inv * t) + b * (t * t)
 		var tan := (ctrl - a) * (2.0 * inv) + (b - ctrl) * (2.0 * t)
 		if tan.length_squared() < 0.0001:
-			tan = d
+			tan = fallback
 		var nrm := tan.normalized().orthogonal()
 
-		var hw: float = lerpf(w_a, w_b, t) * 0.5
+		var hw: float = float(width_at.call(t)) * 0.5
 		left.append(pt + nrm * hw)
 		right.append(pt - nrm * hw)
 

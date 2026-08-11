@@ -9,7 +9,13 @@ def _update(bb):
     
     random.choice([
         bb.NeuralTree.mutate_neuron,
+        bb.NeuralTree.mutate_neuron,
+        bb.NeuralTree.mutate_neuron,
         bb.NeuralTree.new_leaf,
+        bb.NeuralTree.new_leaf,
+        bb.NeuralTree.new_leaf,
+        bb.NeuralTree.new_leaf,
+        bb.NeuralTree.thicken,
         bb.NeuralTree.thicken,
         bb.NeuralTree.grow_branch,
     ])()
@@ -17,4 +23,4 @@ def _update(bb):
     
     bb.NeuralTree.tree.eval_subtree()
     
-    time.sleep(.5)
+    time.sleep(1.0)

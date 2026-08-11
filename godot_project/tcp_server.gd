@@ -14,8 +14,9 @@ const MAX_BUFFER := 1 << 20          # 1 MB Notbremse gegen Müll-Daten
 
 # ---------------------------------------------------------------- Zustand
 
-## id -> { "id": String, "parent": String, "children": Array[String] }
-## "parent" ist "" bei Wurzelknoten.
+## id -> { "id": String, "parent": String, "children": Array[String],
+##          "thickness": float }
+## "parent" ist "" bei Wurzelknoten. "thickness" kommt aus Python (>= 2).
 var nodes: Dictionary = {}
 var roots: Array[String]
 var rev: int = -1
@@ -141,7 +142,15 @@ func _apply(data: Dictionary) -> void:
 				if kid != "":
 					kids.append(kid)
 
-		new_nodes[nid] = { "id": nid, "parent": pid, "children": kids }
+		# Thickness aus Python: int in [2, inf]. Fehlt der Wert oder ist er
+		# kein Zahlentyp, greift der Mindestwert 2.
+		var thick := 2.0
+		var raw_thick: Variant = entry.get("thickness", 2.0)
+		if typeof(raw_thick) == TYPE_FLOAT or typeof(raw_thick) == TYPE_INT:
+			thick = maxf(2.0, float(raw_thick))
+
+		new_nodes[nid] = { "id": nid, "parent": pid, "children": kids,
+				"thickness": thick }
 		if pid == "":
 			new_roots.append(nid)
 			
@@ -185,6 +194,9 @@ func get_parent_id(node_id: String) -> String:
 
 func get_children_ids(node_id: String) -> Array:
 	return nodes.get(node_id, {}).get("children", [])
+
+func get_thickness(node_id: String) -> float:
+	return nodes.get(node_id, {}).get("thickness", 2.0)
 
 func get_depth(node_id: String) -> int:
 	var d := 0

@@ -32,6 +32,7 @@ def _prepare_data(nodes):
             "id": str(id(node)),
             "parent": None if node._parent is None else str(id(node._parent)),
             "children": [] if node._children is None else [str(id(c)) for c in node._children],
+            "thickness": node.get_out_size()
         })
     return data
 
@@ -109,8 +110,6 @@ def _update(bb):
         _latest = json.dumps({"rev": _latest_rev, "nodes": nodes}).encode() + b"\n"
 
     _wake.set()
-    
-    time.sleep(3)
 
 
 def _close():
