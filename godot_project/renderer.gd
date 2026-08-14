@@ -22,32 +22,32 @@
 extends Node2D
 
 # --- Stellschrauben --------------------------------------------------------
-const BOTTOM_MARGIN := 60.0        # Abstand des Stammfußes vom unteren Rand
-const FIT_MARGIN := 60.0           # Rand beim automatischen Einpassen
-const FIT_SMOOTH := 3.0            # Trägheit der Zoom-Anpassung
+@export var BOTTOM_MARGIN := 60.0        ## Abstand des Stammfußes vom unteren Rand
+@export var FIT_MARGIN := 60.0           ## Rand beim automatischen Einpassen
+@export var FIT_SMOOTH := 3.0            ## Trägheit der Zoom-Anpassung
 
-const BEND := -0.5                 # Krümmung Richtung Sonne
-const SEGMENTS := 15               # Stützpunkte pro Ast
-const LEAF_SEGMENTS := 30          # Blätter brauchen eine feinere Kontur
+@export var BEND := -0.5                 ## Krümmung Richtung Sonne
+@export var SEGMENTS := 20               ## Stützpunkte pro Ast
+@export var LEAF_SEGMENTS := 30         ## Blätter brauchen eine feinere Kontur
 
-const WIDTH_K := 1.0               # Astdicke (px) = K * thickness^EXP
-const WIDTH_EXP := 1.0            # 1.0 = proportional zur Python-Thickness
-const WIDTH_MIN := 2.0
-const WIDTH_MAX := 10000.0
-const BASE_BLEND := 0.35           # wie stark der Astfuß zum Elternast passt
+@export var WIDTH_K := 1.0               ## Astdicke (px) = K * thickness^EXP
+@export var WIDTH_EXP := 1.0            ## 1.0 = proportional zur Python-Thickness
+@export var WIDTH_MIN := 2.0
+@export var WIDTH_MAX := 10000.0
+@export var BASE_BLEND := 0.35           ## wie stark der Astfuß zum Elternast passt
 
-const LEAF_WIDTH := 0.44           # Blattbreite relativ zur Blattlänge
-const LEAF_STALK := 0.18           # Anteil der Länge, der Stiel bleibt
-const LEAF_STALK_W := 1.4          # Stieldicke
-const LEAF_PROFILE_A := 0.45       # Blattform: t^A * (1-t)^B ...
-const LEAF_PROFILE_B := 0.80
-const LEAF_PROFILE_NORM := 2.26318 # ... normiert auf Maximum 1
-const LEAF_HUE_JITTER := 0.05      # Farbstreuung pro Blatt
-const MIDRIB := true               # Blattader zeichnen
+@export var LEAF_WIDTH := 0.55           ## Blattbreite relativ zur Blattlänge
+@export var LEAF_STALK := 0.18           ## Anteil der Länge, der Stiel bleibt
+@export var LEAF_STALK_W := 1.8          ## Stieldicke
+@export var LEAF_PROFILE_A := 0.45       ## Blattform: t^A * (1-t)^B ...
+@export var LEAF_PROFILE_B := 0.80
+@export var LEAF_PROFILE_NORM := 2.26318 ## ... normiert auf Maximum 1
+@export var LEAF_HUE_JITTER := 0.05      ## Farbstreuung pro Blatt
+@export var MIDRIB := true               ## Blattader zeichnen
 
-const COLOR_TRUNK := Color(0.32, 0.24, 0.20)
-const COLOR_BRANCH_TIP := Color(0.46, 0.38, 0.28)
-const COLOR_LEAF := Color(0.48, 0.76, 0.38)
+@export var COLOR_TRUNK := Color(0.267, 0.198, 0.163, 1.0)
+@export var COLOR_BRANCH_TIP := Color(0.46, 0.38, 0.28)
+@export var COLOR_LEAF := Color(0.48, 0.76, 0.38)
 # ---------------------------------------------------------------------------
 
 var _fit := 1.0
@@ -110,7 +110,7 @@ func _draw() -> void:
 
 	if sim.is_empty():
 		draw_string(ThemeDB.fallback_font, Vector2(-70.0, -200.0),
-				"Warte auf Daten ...", HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+				"Wait for tree data ...", HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
 				Color(1, 1, 1, 0.4))
 		return
 
@@ -201,7 +201,7 @@ func _draw_leaf(id: String, a: Vector2, n: Dictionary) -> void:
 
 	if MIDRIB:
 		draw_polyline(_centerline(a, b, LEAF_SEGMENTS),
-				col.darkened(0.35), maxf(blade * 0.06, 0.7), true)
+				col.darkened(0.15), maxf(blade * 0.06, 0.7), true)
 
 
 # Bildet die Python-Thickness [2, inf] auf eine Pixelbreite ab.

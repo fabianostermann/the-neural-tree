@@ -32,26 +32,26 @@
 extends Node
 
 # --- Stellschrauben --------------------------------------------------------
-const GRAVITY := Vector2(0.0, 30.0)         # +y = nach unten, lässt Äste hängen
-const WIND_STRENGTH := 20.0
-const WIND_DIR := Vector2(1.0, -0.15)
+@export var GRAVITY := Vector2(0.0, 30.0)         ## +y = nach unten, lässt Äste hängen
+@export var WIND_STRENGTH := 20.0
+@export var WIND_DIR := Vector2(1.0, -0.15)
 
-const GROW_SPEED := 20.0                    # Pixel pro Sekunde Astwachstum
-const GROW_GATE := 0.4                      # ab hier darf das Kind loslegen
+@export var GROW_SPEED := 20.0                    ## Pixel pro Sekunde Astwachstum
+@export var GROW_GATE := 0.1                      ## ab hier darf das Kind loslegen
 
-const MAX_BEND := deg_to_rad(35.0)          # Neigung eines EINZELNEN Astes
+@export var MAX_BEND := deg_to_rad(35.0)          ## Neigung eines EINZELNEN Astes
 
 # Parameterverlauf von Wurzel (erster Wert) zu Blatt (zweiter Wert)
-const STIFFNESS_RANGE := Vector2(700.0, 120.0)   # Widerstand gegen Kräfte
-const RESPONSE_RANGE := Vector2(18.0, 70.0)      # wie schnell nachgegeben wird
-const DAMPING_RANGE := Vector2(0.96, 0.90)       # Ausschwingen pro Schritt
-const WEIGHT_RANGE := Vector2(0.15, 1.0)         # Empfindlichkeit für Schwere
-const FLEX_RANGE := Vector2(0.05, 1.0)           # Empfindlichkeit für Wind
+@export var STIFFNESS_RANGE := Vector2(1000.0, 200.0)   ## Widerstand gegen Kräfte
+@export var RESPONSE_RANGE := Vector2(18.0, 140.0)      ## wie schnell nachgegeben wird
+@export var DAMPING_RANGE := Vector2(0.99, 0.95)       ## Ausschwingen pro Schritt
+@export var WEIGHT_RANGE := Vector2(0.15, 1.0)         ## Empfindlichkeit für Schwere
+@export var FLEX_RANGE := Vector2(0.05, 1.0)           ## Empfindlichkeit für Wind
 
-const LEAF_FLEX_BOOST := 1.6                # Blätter flattern etwas mehr
+@export var LEAF_FLEX_BOOST := 15              ## Blätter flattern etwas mehr
 
-const THICK_SMOOTH := 4.0                   # Trägheit bei Dickenänderungen
-const SHAPE_SMOOTH := 0.5                   # Trägheit bei Layoutänderungen
+@export var THICK_SMOOTH := 4.0                   ## Trägheit bei Dickenänderungen
+@export var SHAPE_SMOOTH := 0.5                   ## Trägheit bei Layoutänderungen
 # ---------------------------------------------------------------------------
 
 var sim: Dictionary = {}

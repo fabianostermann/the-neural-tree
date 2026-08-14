@@ -33,28 +33,28 @@ extends Node
 signal layout_changed
 
 const GROUND_PREFIX := "__ground:"
-const UP_ANGLE := -PI * 0.5          # in Godot zeigt -y nach oben
+const UP_ANGLE := -PI * 0.5          ## in Godot zeigt -y nach oben
 
-const TRUNK_LEN := 190.0             # Länge des Stamms (Boden -> Wurzel)
-const BRANCH_LEN := 150.0            # Länge der ersten Kronenäste
-const LEN_SHRINK := 0.80             # jede weitere Ebene wird kürzer
-const LEAF_LEN := 30.0               # Blätter: überall gleich lang ...
-const LEAF_SIZE_JITTER := 0.15       # ... bis auf +/- 15 % pro Blatt
+@export var TRUNK_LEN := 190.0             ## Länge des Stamms (Boden -> Wurzel)
+@export var BRANCH_LEN := 150.0            ## Länge der ersten Kronenäste
+@export var LEN_SHRINK := 0.6             ## jede weitere Ebene wird kürzer
+@export var LEAF_LEN := 20.0               ## Blätter: überall gleich lang ...
+@export var LEAF_SIZE_JITTER := 0.15       ## ... bis auf +/- 15 % pro Blatt
 
-const SPREAD := deg_to_rad(85.0)     # Grundöffnungswinkel bei zwei Kindern
-const SPREAD_PER_CHILD := deg_to_rad(12.0)  # Zuwachs je weiterem Kind
-const SPREAD_MAX := deg_to_rad(170.0)       # Obergrenze
-const WEIGHT_POWER := 0.35           # 0 = alle gleich, 1 = voll nach Teilbaum
-const THICK_POWER := 0.20            # zusätzlicher Anteil der Astdicke, 0 = aus
+@export var SPREAD := deg_to_rad(85.0)     ## Grundöffnungswinkel bei zwei Kindern
+@export var SPREAD_PER_CHILD := deg_to_rad(12.0)  ## Zuwachs je weiterem Kind
+@export var SPREAD_MAX := deg_to_rad(170.0)       ## Obergrenze
+@export var WEIGHT_POWER := 0.35           ## 0 = alle gleich, 1 = voll nach Teilbaum
+@export var THICK_POWER := 0.20            ## zusätzlicher Anteil der Astdicke, 0 = aus
 
-const UP_BIAS := 0.22                # 0 = keine, 1 = alle Äste senkrecht
-const JITTER := deg_to_rad(8.0)      # deterministische Unregelmäßigkeit
-const ROOT_SPACING := 400.0          # Abstand, falls es mehrere Wurzeln gibt
+@export var UP_BIAS := 0.22                ## 0 = keine, 1 = alle Äste senkrecht
+@export var JITTER := deg_to_rad(8.0)      ## deterministische Unregelmäßigkeit
+@export var ROOT_SPACING := 400.0          ## Abstand, falls es mehrere Wurzeln gibt
 
-# Ansatzpunkt der nachrückenden Geschwister, 1.0 = Astspitze
-const ATT_MIN := 0.55
-const ATT_MAX := 0.95
-const ATT_MIN_PARENT_DEPTH := 1      # 2: Stamm bleibt frei von Seitenästen
+## Ansatzpunkt der nachrückenden Geschwister, 1.0 = Astspitze
+@export var ATT_MIN := 0.30
+@export var ATT_MAX := 0.95
+@export var ATT_MIN_PARENT_DEPTH := 1      ## 2: Stamm bleibt frei von Seitenästen
 
 var rest: Dictionary = {}
 var attach_rest: Dictionary = {}

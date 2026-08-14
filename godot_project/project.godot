@@ -31,4 +31,5 @@ window/stretch/aspect="expand"
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+anti_aliasing/quality/msaa_2d=2
 environment/defaults/default_clear_color=Color(0.00093636644, 0.00093636644, 0.00093636644, 1)
