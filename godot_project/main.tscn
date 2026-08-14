@@ -3,6 +3,52 @@
 [ext_resource type="Script" uid="uid://df4ldlsbk4ekd" path="res://layout.gd" id="1_h2yge"]
 [ext_resource type="Script" uid="uid://caekr1ngug1ft" path="res://simulation.gd" id="2_1bvp3"]
 [ext_resource type="Script" uid="uid://dy7thn0f0cp67" path="res://renderer.gd" id="3_lquwl"]
+[ext_resource type="Shader" uid="uid://bbtg7v5j327yv" path="res://glitch/glitch.gdshader" id="4_lquwl"]
+[ext_resource type="Script" uid="uid://dahm5jeptlky7" path="res://glitch/glitch_driver.gd" id="5_lquwl"]
+[ext_resource type="Shader" uid="uid://bq2nl5wyf3pbj" path="res://glitch/camera.gdshader" id="6_7mycd"]
+
+[sub_resource type="Environment" id="Environment_h2yge"]
+background_mode = 3
+glow_enabled = true
+glow_normalized = true
+glow_intensity = 8.0
+glow_strength = 0.62
+glow_bloom = 1.0
+glow_blend_mode = 3
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2d34i"]
+shader = ExtResource("4_lquwl")
+shader_parameter/glitch_amount = 0.0
+shader_parameter/auto_glitch = true
+shader_parameter/burst_rate = 1.638000054055
+shader_parameter/burst_chance = 0.426000020235
+shader_parameter/burst_decay = 1.9020000428450001
+shader_parameter/rgb_split = 9.1970004368575
+shader_parameter/rgb_split_base = 0.0
+shader_parameter/block_shift = 1.46000006935
+shader_parameter/block_count = 80.0
+shader_parameter/block_share = 1.0
+shader_parameter/frame_shift = 0.87600004161
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_272bh"]
+shader = ExtResource("6_7mycd")
+shader_parameter/handheld = 0.0
+shader_parameter/breathe = 0.0
+shader_parameter/softness = 8.0
+shader_parameter/chroma_smear = 0.97200004617
+shader_parameter/moire = 0.02000000095
+shader_parameter/moire_period = 11.52400047614
+shader_parameter/moire_angle = 0.370000017575
+shader_parameter/rolling = 0.1390000066025
+shader_parameter/rolling_bands = 7.8230003478425
+shader_parameter/rolling_speed = 0.11600019550999985
+shader_parameter/saturation = 1.38400006574
+shader_parameter/contrast = 1.2830000371925
+shader_parameter/black_lift = 0.0
+shader_parameter/exposure = 0.86600003461523
+shader_parameter/vignette = 1.0000000475
+shader_parameter/grain = 0.0150000007125
+shader_parameter/grain_in_shadows = 0.7
 
 [node name="Main" type="Node" unique_id=1865397962]
 
@@ -14,3 +60,30 @@ script = ExtResource("2_1bvp3")
 
 [node name="Renderer" type="Node2D" parent="." unique_id=1608901938]
 script = ExtResource("3_lquwl")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=693985465]
+environment = SubResource("Environment_h2yge")
+
+[node name="PostFX1" type="CanvasLayer" parent="." unique_id=1364221786]
+
+[node name="Glitch" type="ColorRect" parent="PostFX1" unique_id=1558560627]
+material = SubResource("ShaderMaterial_2d34i")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_lquwl")
+
+[node name="PostFX2" type="CanvasLayer" parent="." unique_id=502818900]
+layer = 2
+
+[node name="Camera" type="ColorRect" parent="PostFX2" unique_id=1781598567]
+material = SubResource("ShaderMaterial_272bh")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

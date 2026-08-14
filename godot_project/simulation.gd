@@ -36,7 +36,7 @@ extends Node
 @export var WIND_STRENGTH := 20.0
 @export var WIND_DIR := Vector2(1.0, -0.15)
 
-@export var GROW_SPEED := 20.0                    ## Pixel pro Sekunde Astwachstum
+@export var GROW_SPEED := 20.0                   ## Pixel pro Sekunde Astwachstum
 @export var GROW_GATE := 0.1                      ## ab hier darf das Kind loslegen
 
 @export var MAX_BEND := deg_to_rad(35.0)          ## Neigung eines EINZELNEN Astes

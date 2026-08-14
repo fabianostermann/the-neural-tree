@@ -37,17 +37,22 @@ extends Node2D
 @export var BASE_BLEND := 0.35           ## wie stark der Astfuß zum Elternast passt
 
 @export var LEAF_WIDTH := 0.55           ## Blattbreite relativ zur Blattlänge
-@export var LEAF_STALK := 0.18           ## Anteil der Länge, der Stiel bleibt
+@export var LEAF_STALK := 0.08          ## Anteil der Länge, der Stiel bleibt
 @export var LEAF_STALK_W := 1.8          ## Stieldicke
 @export var LEAF_PROFILE_A := 0.45       ## Blattform: t^A * (1-t)^B ...
 @export var LEAF_PROFILE_B := 0.80
 @export var LEAF_PROFILE_NORM := 2.26318 ## ... normiert auf Maximum 1
-@export var LEAF_HUE_JITTER := 0.05      ## Farbstreuung pro Blatt
+@export var LEAF_HUE_JITTER := 0.15      ## Farbstreuung pro Blatt
 @export var MIDRIB := true               ## Blattader zeichnen
 
-@export var COLOR_TRUNK := Color(0.267, 0.198, 0.163, 1.0)
-@export var COLOR_BRANCH_TIP := Color(0.46, 0.38, 0.28)
-@export var COLOR_LEAF := Color(0.48, 0.76, 0.38)
+#@export var COLOR_TRUNK := Color(0.267, 0.198, 0.163, 1.0)
+#@export var COLOR_BRANCH_TIP := Color(0.46, 0.38, 0.28)
+#@export var COLOR_LEAF := Color(0.48, 0.76, 0.38)
+@export var COLOR_TRUNK := Color(0.149, 0.189, 0.367, 1.0)
+@export var COLOR_BRANCH_TIP := Color(0.675, 0.637, 0.743, 1.0)
+@export var COLOR_LEAF := Color(0.449, 0.629, 0.826, 1.0)
+
+@export var GLOW := 1.5
 # ---------------------------------------------------------------------------
 
 var _fit := 1.0
@@ -171,6 +176,8 @@ func _draw_branch(sim: Dictionary, a: Vector2, n: Dictionary,
 
 	var f: float = float(n.depth) / max_d
 	var col := COLOR_TRUNK.lerp(COLOR_BRANCH_TIP, f)
+	col *= GLOW
+	col.a = 1.0
 
 	draw_colored_polygon(_shape(a, n.pos, SEGMENTS,
 			func(t: float) -> float: return lerpf(w_base, w_tip, t)), col)
@@ -196,12 +203,15 @@ func _draw_leaf(id: String, a: Vector2, n: Dictionary) -> void:
 	var col := COLOR_LEAF
 	col.h = fposmod(col.h + j * LEAF_HUE_JITTER, 1.0)
 	col.v = clampf(col.v + j * 0.10, 0.0, 1.0)
+	
+	col *= GLOW
+	col.a = 1.0
 
 	draw_colored_polygon(_shape(a, b, LEAF_SEGMENTS, profile), col)
 
 	if MIDRIB:
 		draw_polyline(_centerline(a, b, LEAF_SEGMENTS),
-				col.darkened(0.15), maxf(blade * 0.06, 0.7), true)
+				col.darkened(0.05), maxf(blade * 0.06, 0.7), true)
 
 
 # Bildet die Python-Thickness [2, inf] auf eine Pixelbreite ab.
