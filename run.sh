@@ -5,7 +5,7 @@ set -e
 if [ "$1" != "--dev" ];
 then
   cd godot_project
-  ../godot_binary/Godot_v4.7.1-stable_linux.x86_64 &
+  ../godot_binary/Godot_v4.7.1-stable_linux.x86_64 -f &
   PID=$!
   cd ..
 
