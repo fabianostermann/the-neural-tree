@@ -7,18 +7,15 @@ import random, time
 def _update(bb):
     print(bb.NeuralTree.TreeComponent.instances)
     
-    random.choice([
-        bb.NeuralTree.mutate_neuron,
-        bb.NeuralTree.mutate_neuron,
-        bb.NeuralTree.mutate_neuron,
-        bb.NeuralTree.new_leaf,
-        bb.NeuralTree.new_leaf,
-        bb.NeuralTree.new_leaf,
-        bb.NeuralTree.new_leaf,
-        bb.NeuralTree.thicken,
-        bb.NeuralTree.thicken,
-        bb.NeuralTree.grow_branch,
-    ])()
+    if bb.Commands.mutate_neuron:
+        bb.NeuralTree.mutate_neuron()
+    if bb.Commands.thicken:
+        bb.NeuralTree.thicken()
+    if bb.Commands.new_leaf:
+        bb.NeuralTree.new_leaf()
+    if bb.Commands.grow_branch:
+        bb.NeuralTree.grow_branch()
+        
     print(bb.NeuralTree.TreeComponent.instances)
     
     bb.NeuralTree.tree.eval_subtree()
