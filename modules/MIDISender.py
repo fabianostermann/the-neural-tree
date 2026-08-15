@@ -74,8 +74,11 @@ def _update(bb):
 
 def send_message(msg):
     if msg.time < timestamp():
-        #print("Sending:", msg)
-        MIDI_OUT.send(msg)
+        try:
+            MIDI_OUT.send(msg)
+        except Exception as e:
+            print("WARNING: dropped MIDI msg:", e)
+            return
 
         if msg.time > 0:
             latency_ms = (timestamp() - msg.time)*1000
@@ -85,16 +88,17 @@ def send_message(msg):
 
 def _close():
     global MIDI_OUT
-
-    if MIDI_OUT is not None:
-        # all notes off
-        for ch in range(16):
-            for pitch in range(128):
-                MIDI_OUT.send(mido.Message('note_off', note=pitch, channel=ch))
-
-        MIDI_OUT.close()
-        MIDI_OUT = None
-        print("MIDI OUT closed cleanly.")
-
-    if FLUIDSYNTH_PROCESS:
-        os.killpg(os.getpgid(FLUIDSYNTH_PROCESS.pid), signal.SIGTERM)
+    try:
+        if MIDI_OUT is not None:
+            for ch in range(16):
+                for pitch in range(128):
+                    try:
+                        MIDI_OUT.send(mido.Message('note_off', note=pitch, channel=ch))
+                    except Exception:
+                        break
+            MIDI_OUT.close()
+            MIDI_OUT = None
+    finally:
+        if FLUIDSYNTH_PROCESS:
+            print("Kill fluidsynth instance..")
+            os.killpg(os.getpgid(FLUIDSYNTH_PROCESS.pid), signal.SIGTERM)
