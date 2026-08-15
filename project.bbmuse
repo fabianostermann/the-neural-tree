@@ -2,6 +2,6 @@
 # TOML Syntax
 
 [application]
-name = "Code for the AIMC music paper"
+name = "The Neural Tree"
 description = "none"
 
