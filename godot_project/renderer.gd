@@ -114,8 +114,8 @@ func _draw() -> void:
 	var sim: Dictionary = _sim.sim
 
 	if sim.is_empty():
-		draw_string(ThemeDB.fallback_font, Vector2(-70.0, -200.0),
-				"Wait for tree data ...", HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+		draw_string(ThemeDB.fallback_font, Vector2(-400.0, -250.0),
+				"THE NEURAL TREE", 0, -1, 100,
 				Color(1, 1, 1, 0.4))
 		return
 
