@@ -46,7 +46,7 @@ class Neuron:
     instances = []
     
     def __init__(self, in_size: int, weight_range=[-0.5,0.5], bias_range=[-0.2,0.2]):
-        self._weights = [ random.uniform(*weight_range) ] * in_size
+        self._weights = [ random.uniform(*weight_range) for _ in range(in_size) ]
         self._bias = random.uniform(*bias_range)
         self._activation = Activations.relu
         Neuron.instances.append(self)
