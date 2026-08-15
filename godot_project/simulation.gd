@@ -1,57 +1,57 @@
-# simulation.gd — hängt am Node "Simulation" (Typ: Node)
+# simulation.gd — attached to the node "Simulation" (type: Node)
 #
-# Wachstum plus Bewegung über den Ruhepositionen aus Layout.
+# Growth plus motion on top of the rest positions from Layout.
 #
-# WINKELMODELL: die Position eines Knotens wird nicht integriert, sondern
-# konstruiert:
+# ANGLE MODEL: a node's position is not integrated, but
+# constructed:
 #
 #     pos = anchor + local_rest.rotated(theta_world) * grow
 #
-# Simuliert wird nur noch theta — die WINKELabweichung des Astes von seiner
-# Ruhelage. Damit ist die Richtung eines Astes von der ersten Sekunde an
-# festgelegt (sie steht ja im Layout) und Wachstum verlängert ihn lediglich.
-# Kräfte können den Ast neigen, aber nie seine Richtung erfinden.
+# Only theta is simulated — the ANGULAR deviation of the branch from its
+# rest pose. This fixes a branch's direction from the first second on
+# (it's in the layout, after all) and growth merely lengthens it.
+# Forces can tilt the branch, but never invent its direction.
 #
-# theta_world = theta_world des Elternastes + eigenes theta. Abweichungen
-# summieren sich also nach außen auf: der Stamm neigt sich kaum, jeder
-# weitere Ast legt etwas drauf, die Spitzen bewegen sich am meisten.
-# Genau das lässt eine Windböe durch den Baum laufen.
+# theta_world = theta_world of the parent branch + own theta. Deviations
+# therefore accumulate outward: the trunk barely tilts, each
+# further branch adds a bit, the tips move the most.
+# That's exactly what lets a gust of wind run through the tree.
 #
-# WEICHE RUHELAGE: kommt ein Geschwisterast dazu, verteilt Layout den
-# Öffnungswinkel neu — die Ruhelage ALLER Geschwister ändert sich also
-# schlagartig. Deshalb wird jede Größe aus dem Layout (local_rest, att,
-# rest, thickness) nicht direkt übernommen, sondern als *_target abgelegt
-# und pro Frame weich nachgezogen. Nur neue Knoten übernehmen sofort, damit
-# sie von Anfang an in die richtige Richtung wachsen.
+# SOFT REST POSE: when a sibling branch is added, Layout redistributes the
+# opening angle — so the rest pose of ALL siblings changes
+# abruptly. That's why every quantity from the layout (local_rest, att,
+# rest, thickness) is not adopted directly, but stored as *_target
+# and eased toward per frame. Only new nodes adopt immediately, so that
+# they grow in the right direction from the start.
 #
-# Ausgabe für den Renderer:
+# Output for the renderer:
 #   sim   : Dictionary  id -> { pos, anchor, att, parent, depth, subtree,
 #                               thick, leaf, grow, rest_len, ... }
-#   order : Array[String]  ids, Eltern vor Kindern
+#   order : Array[String]  ids, parents before children
 
 extends Node
 
-# --- Stellschrauben --------------------------------------------------------
-@export var GRAVITY := Vector2(0.0, 30.0)         ## +y = nach unten, lässt Äste hängen
+# --- Tuning knobs ----------------------------------------------------------
+@export var GRAVITY := Vector2(0.0, 30.0)         ## +y = downward, makes branches droop
 @export var WIND_STRENGTH := 20.0
 @export var WIND_DIR := Vector2(1.0, -0.15)
 
-@export var GROW_SPEED := 20.0                   ## Pixel pro Sekunde Astwachstum
-@export var GROW_GATE := 0.1                      ## ab hier darf das Kind loslegen
+@export var GROW_SPEED := 20.0                   ## pixels per second of branch growth
+@export var GROW_GATE := 0.1                      ## from here on the child may start
 
-@export var MAX_BEND := deg_to_rad(35.0)          ## Neigung eines EINZELNEN Astes
+@export var MAX_BEND := deg_to_rad(35.0)          ## tilt of a SINGLE branch
 
-# Parameterverlauf von Wurzel (erster Wert) zu Blatt (zweiter Wert)
-@export var STIFFNESS_RANGE := Vector2(1000.0, 200.0)   ## Widerstand gegen Kräfte
-@export var RESPONSE_RANGE := Vector2(18.0, 140.0)      ## wie schnell nachgegeben wird
-@export var DAMPING_RANGE := Vector2(0.99, 0.95)       ## Ausschwingen pro Schritt
-@export var WEIGHT_RANGE := Vector2(0.15, 1.0)         ## Empfindlichkeit für Schwere
-@export var FLEX_RANGE := Vector2(0.05, 1.0)           ## Empfindlichkeit für Wind
+# Parameter gradient from root (first value) to leaf (second value)
+@export var STIFFNESS_RANGE := Vector2(1000.0, 200.0)   ## resistance against forces
+@export var RESPONSE_RANGE := Vector2(18.0, 140.0)      ## how quickly it yields
+@export var DAMPING_RANGE := Vector2(0.99, 0.95)       ## ring-out per step
+@export var WEIGHT_RANGE := Vector2(0.15, 1.0)         ## sensitivity to gravity
+@export var FLEX_RANGE := Vector2(0.05, 1.0)           ## sensitivity to wind
 
-@export var LEAF_FLEX_BOOST := 15              ## Blätter flattern etwas mehr
+@export var LEAF_FLEX_BOOST := 15              ## leaves flutter a bit more
 
-@export var THICK_SMOOTH := 4.0                   ## Trägheit bei Dickenänderungen
-@export var SHAPE_SMOOTH := 0.5                   ## Trägheit bei Layoutänderungen
+@export var THICK_SMOOTH := 4.0                   ## inertia on thickness changes
+@export var SHAPE_SMOOTH := 0.5                   ## inertia on layout changes
 # ---------------------------------------------------------------------------
 
 var sim: Dictionary = {}
@@ -64,15 +64,15 @@ var _noise := FastNoiseLite.new()
 
 func _ready() -> void:
 	_noise.seed = 7
-	_noise.frequency = 1.0        # Koordinaten skalieren wir selbst
+	_noise.frequency = 1.0        # we scale the coordinates ourselves
 	_layout.layout_changed.connect(_on_layout_changed)
 
 
-# Abgleich gegen das neue Layout: bestehende Knoten behalten grow, ihre
-# Winkelauslenkung UND ihre bisherige Ruhelage — sie bekommen lediglich neue
-# Zielwerte, die _physics_process weich nachzieht. Neue Knoten übernehmen
-# sofort und starten bei grow = 0 und theta = 0, also exakt in der Richtung,
-# die ihr Elternast gerade hat. Verschwundene fallen ersatzlos weg.
+# Reconciliation against the new layout: existing nodes keep grow, their
+# angular deflection AND their previous rest pose — they merely get new
+# target values that _physics_process eases toward. New nodes adopt
+# immediately and start at grow = 0 and theta = 0, i.e. exactly in the direction
+# their parent branch currently has. Vanished ones are simply dropped.
 func _on_layout_changed() -> void:
 	var new_sim: Dictionary = {}
 
@@ -82,7 +82,7 @@ func _on_layout_changed() -> void:
 		var d: int = _layout.depth[id]
 		var parent: String = _layout.parent_of.get(id, "")
 
-		var local: Vector2 = r - base               # Ruhelage relativ zum Anker
+		var local: Vector2 = r - base               # rest pose relative to the anchor
 		var a: float = float(_layout.att.get(id, 1.0))
 		var thick: float = float(_layout.thickness.get(id, 2.0))
 
@@ -94,7 +94,7 @@ func _on_layout_changed() -> void:
 					"theta": 0.0, "omega": 0.0, "theta_world": 0.0,
 					"rest": r, "local_rest": local, "att": a, "thick": thick }
 
-		# Zielwerte — die aktuellen Werte gleiten in _physics_process dorthin
+		# Target values — the current values glide toward them in _physics_process
 		n.rest_target = r
 		n.local_rest_target = local
 		n.att_target = a
@@ -109,7 +109,7 @@ func _on_layout_changed() -> void:
 		if parent == "":
 			n.grow = 1.0
 
-		# Nach Tiefe: Stamm starr und träge, Spitzen weich und windanfällig
+		# By depth: trunk rigid and sluggish, tips soft and wind-prone
 		var f := float(d) / float(_layout.max_depth)
 		n.stiffness = lerpf(STIFFNESS_RANGE.x, STIFFNESS_RANGE.y, f)
 		n.response = lerpf(RESPONSE_RANGE.x, RESPONSE_RANGE.y, f)
@@ -133,15 +133,15 @@ func _physics_process(delta: float) -> void:
 	var k_shape := 1.0 - exp(-SHAPE_SMOOTH * delta)
 	var k_thick := 1.0 - exp(-THICK_SMOOTH * delta)
 
-	# Ein einziger Durchgang. order liefert Eltern vor Kindern, also stehen
-	# anchor und theta_world des Elternastes jeweils schon fest.
+	# A single pass. order delivers parents before children, so
+	# anchor and theta_world of the parent branch are already fixed each time.
 	for id in order:
 		var n: Dictionary = sim[id]
 
-		# 0. Layout- und Dickenänderungen weich nachziehen. local_rest wird
-		#    über Winkel UND Länge interpoliert, nicht komponentenweise:
-		#    sonst würde der Ast beim Drehen über die Sehne abkürzen und
-		#    dabei kurz schrumpfen.
+		# 0. Ease toward layout and thickness changes. local_rest is
+		#    interpolated over angle AND length, not component-wise:
+		#    otherwise the branch would cut across the chord while turning
+		#    and briefly shrink in the process.
 		n.rest = n.rest.lerp(n.rest_target, k_shape)
 		n.local_rest = _approach(n.local_rest, n.local_rest_target, k_shape)
 		n.att = lerpf(n.att, n.att_target, k_shape)
@@ -149,7 +149,7 @@ func _physics_process(delta: float) -> void:
 		n.thick = lerpf(n.thick, n.thick_target, k_thick)
 
 		if n.parent == "" or not sim.has(n.parent):
-			n.pos = n.rest                        # Bodenpunkt ist verankert
+			n.pos = n.rest                        # ground point is anchored
 			n.anchor = n.rest
 			n.theta_world = 0.0
 			n.grow = 1.0
@@ -157,18 +157,18 @@ func _physics_process(delta: float) -> void:
 
 		var p: Dictionary = sim[n.parent]
 
-		# 1. Wachstum. Ein Seitenast wartet, bis der Elternast überhaupt
-		#    bis zu seinem Ansatzpunkt gewachsen ist.
+		# 1. Growth. A side branch waits until the parent branch has actually
+		#    grown up to its attachment point.
 		if n.grow < 1.0 and p.grow >= maxf(GROW_GATE, n.att):
 			n.grow = minf(1.0,
 					n.grow + delta * GROW_SPEED / maxf(n.rest_len, 1.0))
 
-		# 2. Ansatzpunkt auf dem Elternast
+		# 2. Attachment point on the parent branch
 		n.anchor = p.anchor.lerp(p.pos, n.att)
 
-		# 3. Winkel. Das Drehmoment ist die Querkomponente der Kräfte
-		#    bezogen auf die Astrichtung: ein senkrechter Ast hängt unter
-		#    Schwerkraft nicht durch, ein waagerechter maximal.
+		# 3. Angle. The torque is the transverse component of the forces
+		#    relative to the branch direction: a vertical branch doesn't sag
+		#    under gravity, a horizontal one sags maximally.
 		var dir: Vector2 = n.local_rest.rotated(p.theta_world + n.theta)
 		if dir.length_squared() > 0.0001:
 			dir = dir.normalized()
@@ -183,16 +183,16 @@ func _physics_process(delta: float) -> void:
 			n.theta += n.omega * delta
 			if absf(n.theta) > MAX_BEND:
 				n.theta = clampf(n.theta, -MAX_BEND, MAX_BEND)
-				n.omega = 0.0                     # nicht am Anschlag kleben
+				n.omega = 0.0                     # don't stick at the limit
 
-		# 4. Position — Richtung aus dem Layout, Länge aus dem Wachstum
+		# 4. Position — direction from the layout, length from the growth
 		n.theta_world = p.theta_world + n.theta
 		n.pos = n.anchor + n.local_rest.rotated(n.theta_world) * n.grow
 
 
-# Nähert einen Vektor seinem Ziel an, indem Winkel und Länge GETRENNT
-# interpoliert werden — bei einer Drehung um 40° würde die komponentenweise
-# Interpolation den Vektor zwischenzeitlich um rund 6 % verkürzen.
+# Approaches a vector toward its target by interpolating angle and length
+# SEPARATELY — for a rotation of 40°, component-wise interpolation would
+# shorten the vector by around 6 % along the way.
 func _approach(cur: Vector2, target: Vector2, k: float) -> Vector2:
 	var tl := target.length()
 	var cl := cur.length()
@@ -203,9 +203,9 @@ func _approach(cur: Vector2, target: Vector2, k: float) -> Vector2:
 	return Vector2.from_angle(lerp_angle(ca, ta, k)) * lerpf(cl, tl, k)
 
 
-# Räumlich kohärentes Windfeld: benachbarte Äste sehen ähnliche Kräfte,
-# Böen wandern von links nach rechts durchs Bild, und eine separate,
-# viel langsamere Kurve lässt den Wind an- und abschwellen.
+# Spatially coherent wind field: neighboring branches see similar forces,
+# gusts travel from left to right across the image, and a separate,
+# much slower curve makes the wind swell and subside.
 func _wind(p: Vector2, t: float) -> Vector2:
 	var n := _noise.get_noise_3d(p.x * 0.006 - t * 0.5, p.y * 0.006, t * 0.4)
 	var gust := 0.5 + 0.5 * _noise.get_noise_2d(t * 0.15, 500.0)

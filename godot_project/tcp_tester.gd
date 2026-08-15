@@ -4,7 +4,7 @@ func _ready() -> void:
 	TcpServer.tree_updated.connect(_on_tree_updated)
 
 func _on_tree_updated(rev: int) -> void:
-	print("Neuer Baum, rev %d, %d Knoten" % [rev, TcpServer.nodes.size()])
+	print("New tree, rev %d, %d nodes" % [rev, TcpServer.nodes.size()])
 	for root in TcpServer.roots:
 		_walk(root, 0)
 

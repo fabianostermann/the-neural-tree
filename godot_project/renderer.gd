@@ -1,49 +1,49 @@
-# renderer.gd — hängt am Node "Renderer" (Typ: Node2D)
+# renderer.gd — attached to the node "Renderer" (type: Node2D)
 #
-# Liest ausschließlich Simulation.sim und zeichnet daraus.
+# Reads Simulation.sim exclusively and draws from it.
 #
-# Beide Formen teilen sich dieselbe Mittellinie: eine quadratische Bezier
-# vom Astfuß zur Knotenposition, deren Kontrollpunkt oberhalb der Sehne
-# liegt. Je waagerechter, desto stärker die Krümmung nach oben.
+# Both shapes share the same centerline: a quadratic Bezier from the branch
+# foot to the node position, whose control point lies above the chord. The
+# more horizontal, the stronger the upward curvature.
 #
-#   Äste  — Breitenprofil verjüngt sich linear von Fuß zu Spitze.
-#   Blätter (Knoten ohne Kinder) — Breitenprofil ist eine Blattform:
-#     kurzer Stiel, dann breite Fläche mit Maximum bei ~36 % und
-#     auslaufender Spitze. Die Größe hängt an rest_len und ist damit
-#     überall gleich, unabhängig von der Tiefe im Baum.
+#   Branches — width profile tapers linearly from foot to tip.
+#   Leaves (nodes without children) — width profile is a leaf shape:
+#     short stalk, then a wide blade peaking at ~36 % and a tapering
+#     tip. The size hangs on rest_len and is therefore the same
+#     everywhere, independent of the depth in the tree.
 #
-# ASTFUSS: die Simulation rechnet den Ansatzpunkt auf der SEHNE des
-# Elternastes aus, gezeichnet wird der Elternast aber als Bezier. Deshalb
-# bestimmt der Renderer den Fußpunkt hier noch einmal selbst — diesmal auf
-# der tatsächlichen Kurve, damit jeder Ast exakt auf dem Elternast sitzt
-# statt daneben. Die Differenz beträgt wenige Pixel und wirkt sich nur auf
-# den Zeichenpunkt aus, nicht auf die Physik.
+# BRANCH FOOT: the simulation computes the attachment point on the CHORD of
+# the parent branch, but the parent branch is drawn as a Bezier. That's why
+# the renderer determines the foot point here once more itself — this time on
+# the actual curve, so that every branch sits exactly on the parent branch
+# instead of beside it. The difference is a few pixels and only affects
+# the drawing point, not the physics.
 
 extends Node2D
 
-# --- Stellschrauben --------------------------------------------------------
-@export var BOTTOM_MARGIN := 60.0        ## Abstand des Stammfußes vom unteren Rand
-@export var FIT_MARGIN := 60.0           ## Rand beim automatischen Einpassen
-@export var FIT_SMOOTH := 3.0            ## Trägheit der Zoom-Anpassung
+# --- Tuning knobs ----------------------------------------------------------
+@export var BOTTOM_MARGIN := 60.0        ## distance of the trunk foot from the bottom edge
+@export var FIT_MARGIN := 60.0           ## margin for automatic fitting
+@export var FIT_SMOOTH := 3.0            ## inertia of the zoom adjustment
 
-@export var BEND := -0.5                 ## Krümmung Richtung Sonne
-@export var SEGMENTS := 20               ## Stützpunkte pro Ast
-@export var LEAF_SEGMENTS := 30         ## Blätter brauchen eine feinere Kontur
+@export var BEND := -0.5                 ## curvature toward the sun
+@export var SEGMENTS := 20               ## support points per branch
+@export var LEAF_SEGMENTS := 30         ## leaves need a finer contour
 
-@export var WIDTH_K := 1.0               ## Astdicke (px) = K * thickness^EXP
-@export var WIDTH_EXP := 1.0            ## 1.0 = proportional zur Python-Thickness
+@export var WIDTH_K := 1.0               ## branch thickness (px) = K * thickness^EXP
+@export var WIDTH_EXP := 1.0            ## 1.0 = proportional to the Python thickness
 @export var WIDTH_MIN := 2.0
 @export var WIDTH_MAX := 10000.0
-@export var BASE_BLEND := 0.35           ## wie stark der Astfuß zum Elternast passt
+@export var BASE_BLEND := 0.35           ## how strongly the branch foot matches the parent branch
 
-@export var LEAF_WIDTH := 0.55           ## Blattbreite relativ zur Blattlänge
-@export var LEAF_STALK := 0.08          ## Anteil der Länge, der Stiel bleibt
-@export var LEAF_STALK_W := 1.8          ## Stieldicke
-@export var LEAF_PROFILE_A := 0.45       ## Blattform: t^A * (1-t)^B ...
+@export var LEAF_WIDTH := 0.55           ## leaf width relative to leaf length
+@export var LEAF_STALK := 0.08          ## share of the length that stays stalk
+@export var LEAF_STALK_W := 1.8          ## stalk thickness
+@export var LEAF_PROFILE_A := 0.45       ## leaf shape: t^A * (1-t)^B ...
 @export var LEAF_PROFILE_B := 0.80
-@export var LEAF_PROFILE_NORM := 2.26318 ## ... normiert auf Maximum 1
-@export var LEAF_HUE_JITTER := 0.15      ## Farbstreuung pro Blatt
-@export var MIDRIB := true               ## Blattader zeichnen
+@export var LEAF_PROFILE_NORM := 2.26318 ## ... normalized to maximum 1
+@export var LEAF_HUE_JITTER := 0.15      ## color scatter per leaf
+@export var MIDRIB := true               ## draw leaf vein
 
 #@export var COLOR_TRUNK := Color(0.267, 0.198, 0.163, 1.0)
 #@export var COLOR_BRANCH_TIP := Color(0.46, 0.38, 0.28)
@@ -65,7 +65,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_reposition)
 
 
-# Layoutursprung (Stammfuß) unten mittig im Viewport verankern.
+# Anchor the layout origin (trunk foot) at the bottom center of the viewport.
 func _reposition() -> void:
 	var vp := get_viewport_rect().size
 	position = Vector2(vp.x * 0.5, vp.y - BOTTOM_MARGIN)
@@ -76,9 +76,9 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-# Der Baum ändert während der Performance seine Größe — hier wird er
-# sanft so skaliert, dass er ins Bild passt. Skaliert wird um den
-# Stammfuß, der dadurch an seinem Platz bleibt.
+# The tree changes its size during the performance — here it is gently
+# scaled so that it fits into the frame. Scaling happens around the
+# trunk foot, which thereby stays in place.
 func _update_fit(delta: float) -> void:
 	var sim: Dictionary = _sim.sim
 	if sim.is_empty():
@@ -95,7 +95,7 @@ func _update_fit(delta: float) -> void:
 	var avail_w := maxf(vp.x - FIT_MARGIN * 2.0, 1.0)
 	var avail_h := maxf(vp.y - BOTTOM_MARGIN - FIT_MARGIN, 1.0)
 
-	# Breite symmetrisch um den Stamm, Höhe nur nach oben
+	# Width symmetrical around the trunk, height only upward
 	var need_w := maxf(absf(lo.x), absf(hi.x)) * 2.0
 	var need_h := absf(minf(lo.y, 0.0))
 
@@ -123,22 +123,22 @@ func _draw() -> void:
 	for id in sim:
 		max_d = maxf(max_d, float(sim[id].depth))
 
-	# Astfüße auf der gezeichneten Kurve — in einem Durchgang, weil
-	# order Eltern vor Kindern liefert und der Fuß eines Astes auf der
-	# Kurve des Elternastes liegt, die ihrerseits an dessen Fuß beginnt.
+	# Branch feet on the drawn curve — in a single pass, because
+	# order delivers parents before children and the foot of a branch lies on
+	# the curve of the parent branch, which in turn begins at its foot.
 	var base: Dictionary = {}
 	for id in _sim.order:
 		if not sim.has(id):
 			continue
 		var n: Dictionary = sim[id]
 		if n.parent == "" or not base.has(n.parent):
-			base[id] = n.pos          # Bodenpunkt: Fuß ist er selbst
+			base[id] = n.pos          # ground point: it is its own foot
 			continue
 		var p: Dictionary = sim[n.parent]
 		base[id] = _curve_point(base[n.parent], p.pos, n.att)
 
-	# Erst das Holz (order läuft von innen nach außen: dicke Äste zuerst),
-	# danach die Blätter, damit sie darüber liegen
+	# First the wood (order runs from inside out: thick branches first),
+	# then the leaves, so that they lie on top
 	for id in _sim.order:
 		var n := _edge(sim, base, id)
 		if n.is_empty() or n.leaf:
@@ -152,8 +152,8 @@ func _draw() -> void:
 		_draw_leaf(id, base[id], n)
 
 
-# Liefert den Knoten, wenn er eine zeichenbare Kante hat, sonst ein
-# leeres Dictionary.
+# Returns the node if it has a drawable edge, otherwise an
+# empty dictionary.
 func _edge(sim: Dictionary, base: Dictionary, id: String) -> Dictionary:
 	if not sim.has(id) or not base.has(id):
 		return {}
@@ -185,20 +185,20 @@ func _draw_branch(sim: Dictionary, a: Vector2, n: Dictionary,
 
 func _draw_leaf(id: String, a: Vector2, n: Dictionary) -> void:
 	var b: Vector2 = n.pos
-	# Größe aus der Ruhelänge, nicht aus dem aktuellen Abstand: damit
-	# bleiben Blätter überall gleich groß und zappeln nicht in der Breite.
+	# Size from the rest length, not from the current distance: this keeps
+	# leaves the same size everywhere and stops them jittering in width.
 	var blade: float = float(n.rest_len) * LEAF_WIDTH * n.grow
 
 	var profile := func(t: float) -> float:
-		# Stiel, der zur Blattfläche hin ausläuft ...
+		# stalk that tapers out toward the blade ...
 		var stalk: float = LEAF_STALK_W * maxf(0.0, 1.0 - t / LEAF_STALK)
-		# ... und die Blattfläche selbst
+		# ... and the blade itself
 		var u: float = clampf((t - LEAF_STALK) / (1.0 - LEAF_STALK), 0.0, 1.0)
 		var w: float = blade * LEAF_PROFILE_NORM \
 				* pow(u, LEAF_PROFILE_A) * pow(1.0 - u, LEAF_PROFILE_B)
 		return maxf(maxf(stalk, w), 0.6)
 
-	# Deterministische Farbstreuung: dasselbe Blatt bleibt sich treu
+	# Deterministic color scatter: the same leaf stays true to itself
 	var j := (float(absi(hash(id)) % 1000) / 1000.0 - 0.5) * 2.0
 	var col := COLOR_LEAF
 	col.h = fposmod(col.h + j * LEAF_HUE_JITTER, 1.0)
@@ -214,14 +214,14 @@ func _draw_leaf(id: String, a: Vector2, n: Dictionary) -> void:
 				col.darkened(0.05), maxf(blade * 0.06, 0.7), true)
 
 
-# Bildet die Python-Thickness [2, inf] auf eine Pixelbreite ab.
+# Maps the Python thickness [2, inf] onto a pixel width.
 func _width(thick: float) -> float:
 	return clampf(WIDTH_K * pow(maxf(thick, 2.0), WIDTH_EXP),
 			WIDTH_MIN, WIDTH_MAX)
 
 
-# Kontrollpunkt der gemeinsamen Mittellinie: oberhalb der Sehne, mit
-# der stärksten Krümmung bei waagerechten und ohne bei senkrechten Ästen.
+# Control point of the shared centerline: above the chord, with
+# the strongest curvature on horizontal and none on vertical branches.
 func _control(a: Vector2, b: Vector2) -> Vector2:
 	var d := b - a
 	var l := d.length()
@@ -249,7 +249,7 @@ func _centerline(a: Vector2, b: Vector2, segments: int) -> PackedVector2Array:
 	return pts
 
 
-# Baut ein Polygon um die Mittellinie; width_at(t) liefert die Breite.
+# Builds a polygon around the centerline; width_at(t) supplies the width.
 func _shape(a: Vector2, b: Vector2, segments: int,
 		width_at: Callable) -> PackedVector2Array:
 	var ctrl := _control(a, b)
@@ -272,7 +272,7 @@ func _shape(a: Vector2, b: Vector2, segments: int,
 		left.append(pt + nrm * hw)
 		right.append(pt - nrm * hw)
 
-	# Umlaufender Polygonzug: eine Seite hin, die andere zurück
+	# Closed polygon outline: one side out, the other back
 	var poly := left
 	for i in range(right.size() - 1, -1, -1):
 		poly.append(right[i])

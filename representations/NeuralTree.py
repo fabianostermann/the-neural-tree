@@ -6,7 +6,7 @@ def _validate():
     #print(n.forward([1,2,3]))
     
 def thicken():
-    # instanciate a new leaf at random position
+    # instantiate a new leaf at random position
     branch = Leaf.instances[0]
     while isinstance(branch, Leaf):
         branch = random.choice(TreeComponent.instances)
@@ -17,7 +17,7 @@ def mutate_neuron():
     random.choice(Neuron.instances).mutate()
     
 def new_leaf():
-    # instanciate a new leaf at random position
+    # instantiate a new leaf at random position
     branch = Leaf.instances[0]
     while isinstance(branch, Leaf):
         branch = random.choice(TreeComponent.instances)

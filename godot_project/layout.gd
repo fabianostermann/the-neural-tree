@@ -1,60 +1,60 @@
-# layout.gd — hängt am Node "Layout" (Typ: Node)
+# layout.gd — attached to the node "Layout" (type: Node)
 #
-# Liest den Baum aus dem TcpServer-Autoload und berechnet Ruhepositionen.
-# Winkel-Layout: der Baum wächst nach oben (-y), jeder Ast zweigt in einem
-# Winkel relativ zu seinem Elternast ab. Der Winkelbereich wird nach
-# Teilbaumgröße verteilt und leicht Richtung Himmel gezogen.
+# Reads the tree from the TcpServer autoload and computes rest positions.
+# Angle layout: the tree grows upward (-y), each branch splits off at an
+# angle relative to its parent branch. The angle range is distributed by
+# subtree size and pulled slightly toward the sky.
 #
-# STAMM: unter jede Wurzel wird ein synthetischer Bodenknoten gesetzt
-# (id = GROUND_PREFIX + wurzel_id). Die Kante Boden -> Wurzel ist damit
-# der Stamm — eine ganz normale Kante, die senkrecht nach oben wächst.
+# TRUNK: a synthetic ground node is placed below every root
+# (id = GROUND_PREFIX + root_id). The edge ground -> root is therefore
+# the trunk — a perfectly normal edge that grows straight up.
 #
-# ANSATZPUNKT: die Baumstruktur lässt jeden Ast an der Spitze des
-# Elternastes beginnen. Rein visuell darf aber nur der ÄLTESTE Ast die
-# Spitze belegen; alle später hinzugekommenen Geschwister setzen weiter
-# unten am Elternast an (att < 1). Deshalb hat jeder Knoten neben rest
-# auch attach_rest — den Punkt, aus dem sein Ast herauswächst.
+# ATTACHMENT POINT: the tree structure lets every branch start at the tip of
+# the parent branch. Visually, though, only the OLDEST branch may occupy the
+# tip; all siblings added later attach further down the parent branch
+# (att < 1). That's why every node has attach_rest besides rest — the point
+# its branch grows out of.
 #
-# Ausgabe für die anderen Schichten:
-#   rest        : Dictionary  id -> Vector2  (Astspitze, Boden bei (0,0))
-#   attach_rest : Dictionary  id -> Vector2  (Astfuß am Elternast)
-#   att         : Dictionary  id -> float    (0..1 entlang des Elternastes)
-#   parent_of   : Dictionary  id -> String   ("" bei Bodenknoten)
-#   depth       : Dictionary  id -> int      (Boden = 0, Wurzel = 1)
-#   subtree     : Dictionary  id -> int      (für Winkelverteilung)
-#   thickness   : Dictionary  id -> float    (aus Python, für die Astdicke)
-#   is_leaf     : Dictionary  id -> bool     (Knoten ohne Kinder)
+# Output for the other layers:
+#   rest        : Dictionary  id -> Vector2  (branch tip, ground at (0,0))
+#   attach_rest : Dictionary  id -> Vector2  (branch foot on the parent branch)
+#   att         : Dictionary  id -> float    (0..1 along the parent branch)
+#   parent_of   : Dictionary  id -> String   ("" for ground nodes)
+#   depth       : Dictionary  id -> int      (ground = 0, root = 1)
+#   subtree     : Dictionary  id -> int      (for angle distribution)
+#   thickness   : Dictionary  id -> float    (from Python, for branch thickness)
+#   is_leaf     : Dictionary  id -> bool     (nodes without children)
 #   max_depth   : int
-#   order       : Array[String]  ids, Eltern stets vor ihren Kindern
-#   Signal layout_changed nach jeder Neuberechnung
+#   order       : Array[String]  ids, parents always before their children
+#   Signal layout_changed after every recomputation
 
 extends Node
 
 signal layout_changed
 
 const GROUND_PREFIX := "__ground:"
-const UP_ANGLE := -PI * 0.5          ## in Godot zeigt -y nach oben
+const UP_ANGLE := -PI * 0.5          ## in Godot, -y points up
 
-@export var TRUNK_LEN := 190.0             ## Länge des Stamms (Boden -> Wurzel)
-@export var BRANCH_LEN := 150.0            ## Länge der ersten Kronenäste
-@export var LEN_SHRINK := 0.6             ## jede weitere Ebene wird kürzer
-@export var LEAF_LEN := 20.0               ## Blätter: überall gleich lang ...
-@export var LEAF_SIZE_JITTER := 0.15       ## ... bis auf +/- 15 % pro Blatt
+@export var TRUNK_LEN := 190.0             ## length of the trunk (ground -> root)
+@export var BRANCH_LEN := 150.0            ## length of the first crown branches
+@export var LEN_SHRINK := 0.6             ## each further level gets shorter
+@export var LEAF_LEN := 20.0               ## leaves: same length everywhere ...
+@export var LEAF_SIZE_JITTER := 0.15       ## ... except for +/- 15 % per leaf
 
-@export var SPREAD := deg_to_rad(85.0)     ## Grundöffnungswinkel bei zwei Kindern
-@export var SPREAD_PER_CHILD := deg_to_rad(12.0)  ## Zuwachs je weiterem Kind
-@export var SPREAD_MAX := deg_to_rad(170.0)       ## Obergrenze
-@export var WEIGHT_POWER := 0.35           ## 0 = alle gleich, 1 = voll nach Teilbaum
-@export var THICK_POWER := 0.20            ## zusätzlicher Anteil der Astdicke, 0 = aus
+@export var SPREAD := deg_to_rad(85.0)     ## base opening angle with two children
+@export var SPREAD_PER_CHILD := deg_to_rad(12.0)  ## increase per additional child
+@export var SPREAD_MAX := deg_to_rad(170.0)       ## upper limit
+@export var WEIGHT_POWER := 0.35           ## 0 = all equal, 1 = fully by subtree
+@export var THICK_POWER := 0.20            ## additional share of branch thickness, 0 = off
 
-@export var UP_BIAS := 0.22                ## 0 = keine, 1 = alle Äste senkrecht
-@export var JITTER := deg_to_rad(8.0)      ## deterministische Unregelmäßigkeit
-@export var ROOT_SPACING := 400.0          ## Abstand, falls es mehrere Wurzeln gibt
+@export var UP_BIAS := 0.22                ## 0 = none, 1 = all branches vertical
+@export var JITTER := deg_to_rad(8.0)      ## deterministic irregularity
+@export var ROOT_SPACING := 400.0          ## spacing if there are several roots
 
-## Ansatzpunkt der nachrückenden Geschwister, 1.0 = Astspitze
+## Attachment point of the trailing siblings, 1.0 = branch tip
 @export var ATT_MIN := 0.30
 @export var ATT_MAX := 0.95
-@export var ATT_MIN_PARENT_DEPTH := 1      ## 2: Stamm bleibt frei von Seitenästen
+@export var ATT_MIN_PARENT_DEPTH := 1      ## 2: trunk stays free of side branches
 
 var rest: Dictionary = {}
 var attach_rest: Dictionary = {}
@@ -68,22 +68,22 @@ var max_depth: int = 1
 var order: Array[String] = []
 
 var _children: Dictionary = {}       # id -> Array[String]
-var _seen: Dictionary = {}           # Zyklenschutz bei fehlerhaften Daten
-var _seniority: Dictionary = {}      # id -> Zähler, wann zuerst gesehen
+var _seen: Dictionary = {}           # cycle protection for faulty data
+var _seniority: Dictionary = {}      # id -> counter, when first seen
 var _next_seniority: int = 0
 var _last_rev: int = -1
 
 
 func _ready() -> void:
 	TcpServer.tree_updated.connect(_on_tree_updated)
-	# Falls schon Daten anliegen, bevor wir bereit waren — deferred, damit
-	# Simulation und Renderer ihr _ready() sicher hinter sich haben.
+	# In case data already arrived before we were ready — deferred, so that
+	# simulation and renderer have safely finished their _ready().
 	if TcpServer.has_data():
 		call_deferred("_on_tree_updated", TcpServer.rev)
 
 
 func _on_tree_updated(rev: int) -> void:
-	# Python sendet als Keepalive denselben Snapshot erneut — nichts zu tun.
+	# Python resends the same snapshot as a keepalive — nothing to do.
 	if rev == _last_rev and not rest.is_empty():
 		return
 	_last_rev = rev
@@ -104,7 +104,7 @@ func _on_tree_updated(rev: int) -> void:
 	for id in _children:
 		is_leaf[id] = _children[id].is_empty()
 
-	# Teilbaumgrößen vorab, sie steuern Winkelverteilung und Astdicke
+	# Subtree sizes up front, they drive angle distribution and branch thickness
 	_seen.clear()
 	for g in grounds:
 		_calc_subtree(g)
@@ -118,9 +118,9 @@ func _on_tree_updated(rev: int) -> void:
 	layout_changed.emit()
 
 
-# Merkt sich, in welcher Reihenfolge Knoten zum ersten Mal aufgetaucht sind.
-# Nur so lässt sich entscheiden, welcher Ast die Spitze behalten darf —
-# die IDs selbst sagen nichts über das Alter aus.
+# Remembers the order in which nodes first appeared.
+# It's the only way to decide which branch may keep the tip —
+# the IDs themselves say nothing about age.
 func _track_seniority() -> void:
 	for id in TcpServer.nodes:
 		if not _seniority.has(id):
@@ -131,9 +131,9 @@ func _track_seniority() -> void:
 			_seniority.erase(id)
 
 
-# parent-Zeiger sind die Wahrheit; die children-Listen aus dem JSON
-# ignorieren wir bewusst, damit es nur eine Quelle gibt.
-# Gibt die Liste der synthetischen Bodenknoten zurück.
+# parent pointers are the truth; we deliberately ignore the children lists
+# from the JSON so that there is only one source.
+# Returns the list of synthetic ground nodes.
 func _build_children() -> Array[String]:
 	_children.clear()
 	parent_of.clear()
@@ -147,20 +147,20 @@ func _build_children() -> Array[String]:
 		if p != "" and _children.has(p):
 			_children[p].append(id)
 
-	# Sortiert, damit ein inhaltlich gleicher Baum immer gleich aussieht
+	# Sorted, so that a structurally identical tree always looks the same
 	for id in _children:
 		_children[id].sort()
 
-	# Unter jede Wurzel einen Bodenknoten hängen -> daraus wird der Stamm
+	# Hang a ground node below every root -> that becomes the trunk
 	var grounds: Array[String] = []
 	for root in TcpServer.roots:
 		var gid: String = GROUND_PREFIX + root
 		_children[gid] = [root]
 		parent_of[gid] = ""
 		parent_of[root] = gid
-		# Der Stammfuß blendet im Renderer zur Dicke des "Elternastes" —
-		# beim Stamm ist das der Bodenknoten, der deshalb dieselbe Dicke
-		# wie die Wurzel braucht.
+		# The trunk foot blends in the renderer to the thickness of the "parent
+		# branch" — for the trunk that's the ground node, which therefore needs
+		# the same thickness as the root.
 		thickness[gid] = thickness.get(root, 2.0)
 		grounds.append(gid)
 	return grounds
@@ -177,8 +177,8 @@ func _calc_subtree(id: String) -> int:
 	return s
 
 
-# anchor ist der Fußpunkt des eigenen Astes, pos dessen Spitze.
-# Kinder setzen irgendwo auf der Strecke anchor -> pos an.
+# anchor is the foot point of the own branch, pos its tip.
+# Children attach somewhere along the stretch anchor -> pos.
 func _place(id: String, d: int, angle: float, pos: Vector2,
 		anchor: Vector2) -> void:
 	if _seen.has(id):
@@ -195,14 +195,14 @@ func _place(id: String, d: int, angle: float, pos: Vector2,
 	if kids.is_empty():
 		return
 
-	# Der älteste Ast behält die Spitze, alle anderen rücken nach unten
+	# The oldest branch keeps the tip, all others move further down
 	var senior: String = kids[0]
 	for c in kids:
 		if int(_seniority.get(c, 0)) < int(_seniority.get(senior, 0)):
 			senior = c
 
-	# Ein einzelnes Kind setzt den Ast geradlinig fort. Bei mehreren wächst
-	# der Öffnungswinkel mit ihrer Zahl, sonst wird es eng.
+	# A single child continues the branch in a straight line. With several, the
+	# opening angle grows with their number, otherwise it gets cramped.
 	var span := 0.0
 	if kids.size() > 1:
 		span = minf(SPREAD + SPREAD_PER_CHILD * float(kids.size() - 2),
@@ -221,9 +221,9 @@ func _place(id: String, d: int, angle: float, pos: Vector2,
 		var share: float = span * _angle_weight(c) / total
 		var ca := cursor + share * 0.5
 		cursor += share
-		ca = lerp_angle(ca, UP_ANGLE, UP_BIAS)      # Richtung Sonne
+		ca = lerp_angle(ca, UP_ANGLE, UP_BIAS)      # toward the sun
 		if d > 0:
-			ca += _jitter(c)                        # Stamm bleibt senkrecht
+			ca += _jitter(c)                        # trunk stays vertical
 
 		var a := 1.0
 		if c != senior and d >= ATT_MIN_PARENT_DEPTH:
@@ -235,19 +235,19 @@ func _place(id: String, d: int, angle: float, pos: Vector2,
 				base)
 
 
-# Wie viel Öffnungswinkel ein Kind bekommt. Die Teilbaumgröße sagt, wie viel
-# noch daraus wird; die Astdicke, wie viel Fläche der Ast schon jetzt belegt.
-# Beide Exponenten dämpfen kräftig — mit voller Gewichtung (1.0) bekämen
-# kleine Geschwister nur noch ein bis zwei Grad und lägen übereinander.
+# How much opening angle a child gets. The subtree size says how much will
+# still come of it; the branch thickness, how much area the branch already
+# occupies now. Both exponents dampen strongly — at full weighting (1.0),
+# small siblings would only get one or two degrees and overlap each other.
 func _angle_weight(id: String) -> float:
 	var s: float = pow(maxf(float(subtree.get(id, 1)), 1.0), WEIGHT_POWER)
 	var w: float = pow(maxf(float(thickness.get(id, 2.0)), 1.0), THICK_POWER)
 	return s * w
 
 
-# d ist die Tiefe des ELTERNknotens.
-# d == 0 -> Boden zur Wurzel: der Stamm, feste Länge.
-# Blätter sind überall gleich groß, unabhängig von ihrer Tiefe.
+# d is the depth of the PARENT node.
+# d == 0 -> ground to root: the trunk, fixed length.
+# Leaves are the same size everywhere, independent of their depth.
 func _seg_len(d: int, child: String) -> float:
 	if d == 0:
 		return TRUNK_LEN
@@ -256,9 +256,9 @@ func _seg_len(d: int, child: String) -> float:
 	return BRANCH_LEN * pow(LEN_SHRINK, float(d - 1))
 
 
-# Alle drei Streuungen hängen an der ID und sind damit über Updates hinweg
-# stabil — derselbe Knoten bekommt immer denselben Wert. Unterschiedliche
-# Salze sorgen dafür, dass die Streuungen voneinander unabhängig sind.
+# All three scatters hang on the ID and are therefore stable across updates —
+# the same node always gets the same value. Different salts make sure the
+# scatters are independent of each other.
 func _hash01(id: String, salt: String) -> float:
 	return float(absi(hash(id + salt)) % 10000) / 10000.0
 

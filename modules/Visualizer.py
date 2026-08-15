@@ -10,17 +10,17 @@ PROVIDES = ["Godot Engine"]
 
 HOST = "127.0.0.1"
 PORT = 9999
-RECONNECT_DELAY = 0.5      # Pause zwischen Verbindungsversuchen
-KEEPALIVE = 1.0            # Snapshot spätestens alle n Sekunden erneut senden
+RECONNECT_DELAY = 0.5      # pause between connection attempts
+KEEPALIVE = 1.0            # resend snapshot at least every n seconds
 
 _lock = threading.Lock()
 _wake = threading.Event()
 _stop = threading.Event()
 _thread = None
 
-_latest = None             # aktueller Snapshot als bytes
+_latest = None             # current snapshot as bytes
 _latest_rev = 0
-_last_nodes_json = None    # zum Erkennen unveränderter Bäume
+_last_nodes_json = None    # for detecting unchanged trees
 
 
 # ---------------------------------------------------------------- Adapter
@@ -50,7 +50,7 @@ def _sender_loop():
             try:
                 sock = socket.create_connection((HOST, PORT), timeout=2.0)
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                sent_rev = -1          # nach Reconnect aktuellen Stand neu senden
+                sent_rev = -1          # after reconnect, resend current state
             except OSError:
                 sock = None
                 _stop.wait(RECONNECT_DELAY)
@@ -81,7 +81,7 @@ def _sender_loop():
     print("Exit _sender_loop()")
 
 
-# ---------------------------------------------------------------- Modul
+# ---------------------------------------------------------------- Module
 
 def _init():
     global _thread
@@ -96,7 +96,7 @@ def _update(bb):
     try:
         nodes = _prepare_data(bb.NeuralTree.get_all_nodes())
     except Exception as e:
-        print("Baum nicht lesbar:", e)
+        print("Tree parsing error:", e)
         return
 
     nodes_json = json.dumps(nodes)#, sort_keys=True)
@@ -117,5 +117,3 @@ def _close():
     _wake.set()
     if _thread is not None:
         _thread.join(timeout=2.0)
-        
-        

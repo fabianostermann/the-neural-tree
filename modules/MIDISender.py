@@ -56,7 +56,7 @@ def _init():
         MIDI_OUT = create_fluidsynth_out()
 
 def _update(bb):
-    """Sendet alle MIDI-Nachrichten, die im Blackboard-Queue stehen."""
+    """Sends all MIDI messages queued in the blackboard."""
 
     if MIDI_OUT is None:
         return

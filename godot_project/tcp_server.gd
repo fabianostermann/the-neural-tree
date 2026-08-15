@@ -1,29 +1,29 @@
 extends Node
 
-## Empfängt Baum-Snapshots aus dem Python-Framework.
-## Als Autoload registrieren: Projekt > Projekteinstellungen > Autoload,
-## Pfad auf dieses Skript, Name "TcpServer".
-## Zugriff von überall: TcpServer.nodes, TcpServer.roots, TcpServer.rev
+## Receives tree snapshots from the Python framework.
+## Register as an autoload: Project > Project Settings > Autoload,
+## path to this script, name "TcpServer".
+## Access from anywhere: TcpServer.nodes, TcpServer.roots, TcpServer.rev
 
 signal tree_updated(rev: int)
 signal peer_changed(connected: bool)
 
 const PORT := 9999
 const BIND_ADDRESS := "127.0.0.1"
-const MAX_BUFFER := 1 << 20          # 1 MB Notbremse gegen Müll-Daten
+const MAX_BUFFER := 1 << 20          # 1 MB emergency brake against garbage data
 
-# ---------------------------------------------------------------- Zustand
+# ---------------------------------------------------------------- State
 
 ## id -> { "id": String, "parent": String, "children": Array[String],
 ##          "thickness": float }
-## "parent" ist "" bei Wurzelknoten. "thickness" kommt aus Python (>= 2).
+## "parent" is "" for root nodes. "thickness" comes from Python (>= 2).
 var nodes: Dictionary = {}
 var roots: Array[String]
 var rev: int = -1
 var last_update_msec: int = 0
 var peer_connected: bool = false
 
-# ---------------------------------------------------------------- Intern
+# ---------------------------------------------------------------- Internal
 
 var _server := TCPServer.new()
 var _peer: StreamPeerTCP = null
@@ -33,9 +33,9 @@ var _buffer := PackedByteArray()
 func _ready() -> void:
 	var err := _server.listen(PORT, BIND_ADDRESS)
 	if err != OK:
-		push_error("TcpServer: listen auf %s:%d fehlgeschlagen (%d)" % [BIND_ADDRESS, PORT, err])
+		push_error("TcpServer: listen on %s:%d failed (%d)" % [BIND_ADDRESS, PORT, err])
 	else:
-		print("TcpServer: warte auf %s:%d" % [BIND_ADDRESS, PORT])
+		print("TcpServer: waiting on %s:%d" % [BIND_ADDRESS, PORT])
 
 
 func _exit_tree() -> void:
@@ -51,13 +51,13 @@ func _process(_delta: float) -> void:
 func _accept() -> void:
 	if not _server.is_connection_available():
 		return
-	# Neue Verbindung ersetzt die alte (z.B. nach Python-Neustart)
+	# A new connection replaces the old one (e.g. after a Python restart)
 	_drop_peer()
 	_peer = _server.take_connection()
 	_buffer.clear()
 	peer_connected = true
 	peer_changed.emit(true)
-	print("TcpServer: verbunden")
+	print("TcpServer: connected")
 
 
 func _drop_peer() -> void:
@@ -68,7 +68,7 @@ func _drop_peer() -> void:
 	if peer_connected:
 		peer_connected = false
 		peer_changed.emit(false)
-		print("TcpServer: getrennt")
+		print("TcpServer: disconnected")
 
 
 func _receive() -> void:
@@ -87,11 +87,11 @@ func _receive() -> void:
 			_buffer.append_array(res[1])
 
 	if _buffer.size() > MAX_BUFFER:
-		push_warning("TcpServer: Puffer übergelaufen, verwerfe Verbindung")
+		push_warning("TcpServer: buffer overflowed, dropping connection")
 		_drop_peer()
 		return
 
-	# Alle vollständigen Zeilen durchgehen, nur die letzte verwenden
+	# Go through all complete lines, use only the last one
 	var last_line := ""
 	var start := 0
 	var i := _buffer.find(10, start)          # 10 == '\n'
@@ -101,14 +101,14 @@ func _receive() -> void:
 		i = _buffer.find(10, start)
 
 	if start > 0:
-		_buffer = _buffer.slice(start)        # angefangene Zeile aufheben
+		_buffer = _buffer.slice(start)        # keep the partial line
 
 	if last_line.strip_edges() == "":
 		return
 
 	var data: Variant = JSON.parse_string(last_line)
 	if typeof(data) != TYPE_DICTIONARY:
-		push_warning("TcpServer: Nachricht nicht lesbar")
+		push_warning("TcpServer: message not readable")
 		return
 
 	print("Received data:", data)
@@ -142,8 +142,8 @@ func _apply(data: Dictionary) -> void:
 				if kid != "":
 					kids.append(kid)
 
-		# Thickness aus Python: int in [2, inf]. Fehlt der Wert oder ist er
-		# kein Zahlentyp, greift der Mindestwert 2.
+		# Thickness from Python: int in [2, inf]. If the value is missing or
+		# not a numeric type, the minimum of 2 applies.
 		var thick := 2.0
 		var raw_thick: Variant = entry.get("thickness", 2.0)
 		if typeof(raw_thick) == TYPE_FLOAT or typeof(raw_thick) == TYPE_INT:
@@ -154,11 +154,11 @@ func _apply(data: Dictionary) -> void:
 		if pid == "":
 			new_roots.append(nid)
 			
-	# Verwaiste Knoten abfangen: Parent zeigt auf eine unbekannte ID
+	# Catch orphaned nodes: parent points to an unknown ID
 	for nid in new_nodes:
 		var pid: String = new_nodes[nid].parent
 		if pid != "" and not new_nodes.has(pid):
-			push_warning("TcpServer: Knoten %s verweist auf unbekannten Parent %s" % [nid, pid])
+			push_warning("TcpServer: node %s refers to unknown parent %s" % [nid, pid])
 			new_nodes[nid].parent = ""
 			new_roots.append(nid)
 
@@ -169,7 +169,7 @@ func _apply(data: Dictionary) -> void:
 	tree_updated.emit(rev)
 
 
-## Akzeptiert String, int oder float und liefert immer einen String zurück.
+## Accepts String, int or float and always returns a String.
 func _as_id(v: Variant) -> String:
 	match typeof(v):
 		TYPE_NIL:
@@ -184,7 +184,7 @@ func _as_id(v: Variant) -> String:
 			return str(v)
 
 
-# ---------------------------------------------------------------- Zugriff
+# ---------------------------------------------------------------- Access
 
 func has_data() -> bool:
 	return not nodes.is_empty()
@@ -207,6 +207,6 @@ func get_depth(node_id: String) -> int:
 			break
 		cur = p
 		d += 1
-		if d > 1000:            # Schutz gegen Zyklen in fehlerhaften Daten
+		if d > 1000:            # protection against cycles in faulty data
 			break
 	return d

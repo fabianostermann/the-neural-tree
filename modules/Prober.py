@@ -36,7 +36,7 @@ def make_note_on(send_list, acts):
     note = int(act[0]*127)
     velo = int(act[1]*127)
     
-    # neuen Channel alle 4 Blätter
+    # new channel every 4 leaves
     max_chan = min(NUM_OF_CHANNEL-1,int(num_of_leafs/LEAF_PER_NEW_CHANNEL))+1
     chan = random.choice(range(max_chan))
     
@@ -47,17 +47,17 @@ def make_note_on(send_list, acts):
 def make_note_off(send_list, acts, exponent=0.1):
     num_of_leafs = max(1, len(acts))
 
-    # Zielpolyphonie: 1 Note bei 1 Blatt, ~6 bei 200 Blättern
+    # target polyphony: 1 note at 1 leaf, ~6 at 200 leaves
     target_voices = num_of_leafs ** exponent
 
-    # so viele Blindschüsse braucht es, damit sich diese Dichte einstellt
+    # this many blind shots are needed for that density to settle in
     expected = 128.0 / target_voices - 1.0
 
     count = int(expected)
     if random.random() < (expected - count):
         count += 1
 
-    # neuen Channel alle 4 Blätter
+    # new channel every 4 leaves
     max_chan = min(NUM_OF_CHANNEL-1,int(num_of_leafs/LEAF_PER_NEW_CHANNEL))+1
     
     count *= max_chan

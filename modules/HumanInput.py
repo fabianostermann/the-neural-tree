@@ -12,7 +12,7 @@ def _update(bb):
     
     elapsed = time.time() - START
     if elapsed > 1.0:
-        # TODO: replace simulation with real human inputs
+        # simulation of real human inputs
         bb.Commands.mutate_neuron = random.random() < 0.5
         bb.Commands.thicken = random.random() < 0.2
         bb.Commands.new_leaf = random.random() < 0.2
