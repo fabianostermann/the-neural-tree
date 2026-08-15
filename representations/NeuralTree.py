@@ -170,6 +170,5 @@ class Leaf(TreeComponent):
     def get_activations(self):
         return self._values
 
-tree = Root()
-tree.eval_subtree()
+tree = None
         

@@ -7,6 +7,13 @@ import random, time
 def _update(bb):    
     changed = False
     
+    if not bb.Commands.started:
+        return
+        
+    if not bb.NeuralTree.tree:
+        bb.NeuralTree.tree = bb.NeuralTree.Root()
+        bb.NeuralTree.tree.eval_subtree()
+    
     if bb.Commands.mutate_neuron:
         print("Got mutate_neuron() command!")
         bb.NeuralTree.mutate_neuron()

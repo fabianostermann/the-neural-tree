@@ -1,3 +1,5 @@
+started = False
+
 mutate_neuron = False
 thicken = False
 new_leaf = False

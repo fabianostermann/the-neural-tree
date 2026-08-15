@@ -61,7 +61,7 @@ def _sender_loop():
 
         due = rev != sent_rev or (time.monotonic() - last_send) > KEEPALIVE
         
-        print(f"TCP: try to send msg: {msg}")
+        #print(f"TCP: try to send msg: {msg}")
         if msg is not None and due:
             try:
                 sock.sendall(msg)

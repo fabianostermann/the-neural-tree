@@ -1,6 +1,9 @@
-send_list = []
+note_on = []
+note_off = []
+cc = []
 
-def pop_message():
-    sl = send_list
-    send_list = []
-    return sl
+def clear():
+    global note_on, note_off, cc
+    note_on = []
+    note_off = []
+    cc = []
