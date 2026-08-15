@@ -101,7 +101,7 @@ def _update(bb):
 
     nodes_json = json.dumps(nodes)#, sort_keys=True)
     if nodes_json == _last_nodes_json: # no changes
-        print("No changes.")
+        #print("No changes.")
         return
     _last_nodes_json = nodes_json
 

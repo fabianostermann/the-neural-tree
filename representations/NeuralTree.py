@@ -1,4 +1,4 @@
-import random
+import random, math
 
 def _validate():
     pass
@@ -32,30 +32,36 @@ def grow_branch():
     
 def get_all_nodes():
     return TreeComponent.instances
+
+class Activations:
+    def relu(x):
+        return max(0, x)
     
+    def sigmoid(x):
+        if x < -500.0:
+            return 0.0 # Clamp to safe range
+        return 1 / (1 + math.exp(-x))
+
 class Neuron:
     instances = []
     
-    def __init__(self, in_size: int, weight_range=[-0.5,0.5], bias_range=[-0.1,0.1]):
+    def __init__(self, in_size: int, weight_range=[-0.5,0.5], bias_range=[-0.2,0.2]):
         self._weights = [ random.uniform(*weight_range) ] * in_size
         self._bias = random.uniform(*bias_range)
-        self.activation = Neuron.relu
+        self._activation = Activations.relu
         Neuron.instances.append(self)
         
     def forward(self, x):
         assert len(x) == len(self._weights), "input size does not match num of weights"
         x = sum([ w_i*x_i for w_i, x_i in zip(self._weights, x)])
         x = x + self._bias
-        self.activation(x)
+        x = self._activation(x)
         return x
-        
-    def relu(x):
-        return max(0, x)
         
     def mutate(self):
         self._weights[random.randrange(len(self._weights))] += random.gauss(mu=0.0, sigma=1.0)
         if random.random() < 0.2:
-            self._bias += random.gauss(mu=0.0, sigma=0.2)
+            self._bias += random.gauss(mu=0.0, sigma=1.0)
         
 class TreeComponent:
     instances = []
@@ -127,13 +133,15 @@ class Leaf(TreeComponent):
         super().__init__(in_size, Leaf.DEFAULT_OUT_SIZE, parent=parent)
         assert parent
         self._children = None
+        for neuron in self._neurons:
+            neuron._activation = Activations.sigmoid
         Leaf.instances.append(self)
         
     def eval_subtree(self):
         x = self._parent.get_values()
         self._values = self.forward(x)
         assert not self._children
-        
+            
     def add_leaf(self):
         assert False, "Called add_leaf on a leaf instance."
         
@@ -147,14 +155,21 @@ class Leaf(TreeComponent):
         
         # adjust neurons
         new_branch._neurons = self._neurons
+        for neuron in new_branch._neurons:
+            neuron._activation = Activations.relu
+        
         self._neurons = [ Neuron(new_branch.get_out_size()) for o in range(Leaf.DEFAULT_OUT_SIZE) ]
+        for neuron in self._neurons:
+            neuron._activation = Activations.sigmoid
         
         # integrate new branch into tree
         self._parent._children.append(new_branch)
         self._parent._children.remove(self)
         self._parent = new_branch
-        
+    
+    def get_activations(self):
+        return self._values
 
 tree = Root()
-        
+tree.eval_subtree()
         

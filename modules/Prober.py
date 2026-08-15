@@ -3,4 +3,6 @@ REQUIRES = [ "NeuralTree" ]
 PROVIDES = [ "MIDIMessages" ]
 
 def _update(bb):
-    pass
+    # TODO: make midi timing here
+    for leaf in bb.NeuralTree.Leaf.instances:
+        print(leaf.get_activations())
