@@ -15,7 +15,16 @@ fi
 if [ "$1" != "--dev" ];
 then
   cd godot_project
-  ../$GODOT_BINARY --resolution 1920x1080 &
+  
+  if [ "$1" == "-f" ]; then
+    ../$GODOT_BINARY --fullscreen &
+  elif [ "$1" == "--rec" ]; then
+    ../$GODOT_BINARY --resolution 1920x1080 --fixed-fps 30 --write-movie output.avi &
+    # TODO: record audio
+  else
+    ../$GODOT_BINARY --resolution 1920x1080 &
+  fi
+  
   PID=$!
   cd ..
 
