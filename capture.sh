@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+MINUTES=20
+
 GODOT_BINARY="./godot_binary/Godot_v4.7.1-stable_linux.x86_64"
 GODOT_PROJECT="godot_project/"
 
@@ -86,7 +88,7 @@ PAREC_PID=$!
 echo "Recording audio from $AUDIO_SOURCE (parec $PAREC_PID -> ffmpeg $FFMPEG_PID)..."
 sleep 2s
 
-conda run -n bbmuse --live-stream bbmuse . --quit-after 20
+conda run -n bbmuse --live-stream bbmuse . --quit-after $((60*$MINUTES))
 
 sleep 2s
 
