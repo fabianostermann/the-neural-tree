@@ -24,7 +24,11 @@ extends Node2D
 # --- Tuning knobs ----------------------------------------------------------
 @export var BOTTOM_MARGIN := 60.0        ## distance of the trunk foot from the bottom edge
 @export var FIT_MARGIN := 60.0           ## margin for automatic fitting
-@export var FIT_SMOOTH := 3.0            ## inertia of the zoom adjustment
+@export var FIT_SMOOTH := 0.2            ## inertia of the zoom adjustment
+@export var FIT_MIN := 0.1              ## smallest allowed auto scale
+@export var FIT_MAX := 2.0               ## largest allowed auto scale (>1 enlarges!)
+@export var ZOOM := 1.0                  ## manual multiplier on top of the auto fit
+@export var FIT_MIN_EXTENT := 60.0       ## below this size, don't fit yet (avoids startup blow-up)
 
 @export var BEND := -0.5                 ## curvature toward the sun
 @export var SEGMENTS := 20               ## support points per branch
@@ -34,7 +38,7 @@ extends Node2D
 @export var WIDTH_EXP := 1.0            ## 1.0 = proportional to the Python thickness
 @export var WIDTH_MIN := 2.0
 @export var WIDTH_MAX := 10000.0
-@export var BASE_BLEND := 0.35           ## how strongly the branch foot matches the parent branch
+@export var BASE_BLEND := 0.5           ## how strongly the branch foot matches the parent branch
 
 @export var LEAF_WIDTH := 0.55           ## leaf width relative to leaf length
 @export var LEAF_STALK := 0.08          ## share of the length that stays stalk
@@ -77,8 +81,12 @@ func _process(delta: float) -> void:
 
 
 # The tree changes its size during the performance — here it is gently
-# scaled so that it fits into the frame. Scaling happens around the
-# trunk foot, which thereby stays in place.
+# scaled so that it FILLS the frame. Scaling happens around the trunk foot,
+# which thereby stays in place.
+#
+# Note: the scale is allowed to exceed 1.0. The layout works in its own
+# units (trunk ~190 px), which has nothing to do with the screen size — so
+# a small tree has to be enlarged, not just shrunk when it gets too big.
 func _update_fit(delta: float) -> void:
 	var sim: Dictionary = _sim.sim
 	if sim.is_empty():
@@ -86,25 +94,35 @@ func _update_fit(delta: float) -> void:
 
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
+	var half_w := 0.0
 	for id in sim:
 		var p: Vector2 = sim[id].pos
 		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
 		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
+		# Branch widths count too, otherwise thick branches get clipped
+		half_w = maxf(half_w, _width(sim[id].thick) * 0.5)
 
 	var vp := get_viewport_rect().size
 	var avail_w := maxf(vp.x - FIT_MARGIN * 2.0, 1.0)
 	var avail_h := maxf(vp.y - BOTTOM_MARGIN - FIT_MARGIN, 1.0)
 
 	# Width symmetrical around the trunk, height only upward
-	var need_w := maxf(absf(lo.x), absf(hi.x)) * 2.0
-	var need_h := absf(minf(lo.y, 0.0))
+	var need_w := maxf(absf(lo.x), absf(hi.x)) * 2.0 + half_w * 2.0
+	var need_h := absf(minf(lo.y, 0.0)) + half_w
 
-	var target := 1.0
+	# While the trunk is still sprouting, the extent is near zero and any
+	# fit would zoom in absurdly far. Wait until there is something to see.
+	if need_w < FIT_MIN_EXTENT and need_h < FIT_MIN_EXTENT:
+		return
+
+	# Start from the upper bound and let each axis pull it down — that is
+	# what allows enlarging, unlike starting from 1.0.
+	var target := FIT_MAX
 	if need_w > 1.0:
 		target = minf(target, avail_w / need_w)
 	if need_h > 1.0:
 		target = minf(target, avail_h / need_h)
-	target = clampf(target, 0.05, 1.0)
+	target = clampf(target * ZOOM, FIT_MIN, FIT_MAX)
 
 	_fit = lerpf(_fit, target, 1.0 - exp(-FIT_SMOOTH * delta))
 	scale = Vector2(_fit, _fit)
