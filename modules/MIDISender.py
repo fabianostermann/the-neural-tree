@@ -10,7 +10,7 @@ from pathlib import Path
 FLUIDSYNTH_PROCESS = None
 MIDI_OUT = None
 
-MIDI_DEVICE_NAME = "Fluidsynth" # "Vir" or "UA-25EX"; if "Fluidsynth": opens a fluidsynth instance 
+MIDI_DEVICE_NAME = "UA-25EX" #"Fluidsynth" # "Vir" or "UA-25EX"; if "Fluidsynth": opens a fluidsynth instance 
 FLUIDSYNTH_CONF = "./fluidsynth.conf"
 
 def open_matching_midi_out(match):

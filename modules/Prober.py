@@ -6,8 +6,8 @@ import mido
 
 TARGET_TIME = None
 
-LEAF_PER_NEW_CHANNEL = 8
-NUM_OF_CHANNEL = 8
+LEAF_PER_NEW_CHANNEL = 10 #8
+NUM_OF_CHANNEL = 4 #8
 
 def _update(bb):
     global TARGET_TIME
@@ -68,6 +68,7 @@ def make_note_off(send_list, acts, exponent=0.1):
         )
     
 def make_cc(send_list, acts):
+    # TODO maybe limit number of cc per step?
     for i, act in enumerate(acts):
     
         mu = act[0]
