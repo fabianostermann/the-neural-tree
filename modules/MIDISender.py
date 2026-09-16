@@ -76,6 +76,8 @@ def send_message(msg):
     if msg.time < timestamp():
         try:
             MIDI_OUT.send(msg)
+            if msg.type == "note_on":
+                print(f"Sended MIDI note on: {msg}")
         except Exception as e:
             print("WARNING: dropped MIDI msg:", e)
             return

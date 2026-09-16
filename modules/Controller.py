@@ -33,5 +33,5 @@ def _update(bb):
         
     if changed:
         bb.NeuralTree.tree.eval_subtree()
-        print(bb.NeuralTree.TreeComponent.instances)
+        #print(bb.NeuralTree.TreeComponent.instances)
 

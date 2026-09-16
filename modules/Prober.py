@@ -33,10 +33,11 @@ def make_note_on(send_list, acts):
     act = random.choice(acts)
     num_of_leafs = max(1, len(acts))
     
-    note = int(act[0]*127)
+    span = num_of_leafs / 20
+    note = int((act[0]*127*span)-(127*(span-1)/2))%127
     velo = int(act[1]*127)
     
-    # new channel every 4 leaves
+    # new channel every n leaves
     max_chan = min(NUM_OF_CHANNEL-1,int(num_of_leafs/LEAF_PER_NEW_CHANNEL))+1
     chan = random.choice(range(max_chan))
     
@@ -44,7 +45,7 @@ def make_note_on(send_list, acts):
         mido.Message('note_on', channel=chan, note=note, velocity=velo, time=time.time())
     )
 
-def make_note_off(send_list, acts, exponent=0.1):
+def make_note_off(send_list, acts, exponent=0.33):
     num_of_leafs = max(1, len(acts))
 
     # target polyphony: 1 note at 1 leaf, ~6 at 200 leaves
@@ -68,8 +69,7 @@ def make_note_off(send_list, acts, exponent=0.1):
         )
     
 def make_cc(send_list, acts):
-    # TODO maybe limit number of cc per step?
-    for i, act in enumerate(acts):
+    for i, act in enumerate(random.choices(acts, k=10//NUM_OF_CHANNEL)):
     
         mu = act[0]
         sigma = act[1] * 0.05
@@ -82,9 +82,10 @@ def make_cc(send_list, acts):
                 mido.Message('control_change', control=i%117 + 11, value=value, channel=chan)
             )
         
-        random.shuffle(send_list) # ensure to be able to manually catch different events in a DAW
+    random.shuffle(send_list) # ensure to be able to manually catch different events in a DAW
         
         
 def future(k=0):
     # TODO make this human changeable, e.g. through REQUIRE(HumanInput)
+    k = min(k,100)
     return time.time() + random.uniform(0.05, 2.0)**2 / (0.05*k + 1.0)
